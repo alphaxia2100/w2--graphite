@@ -39,6 +39,19 @@ A, orange = mechanism B. Events also print to stdout with a heartbeat.
   `QGraphicsScene` draw surface fed by the same `NSTouch` stream (PRD §7 fallback).
   Do **not** reach for the private `MultitouchSupport.framework`.
 
+## Result — PASS (2026-06-30)
+
+**Mechanism A fired.** A first-responder `TouchCaptureView` over `QWebEngineView`
+received indirect `NSTouch` events; `makeFirstResponder -> True` and first
+responder stayed ours (`firstResponder_is_ours=True` on the heartbeat).
+`normalizedPosition` (0–1, lower-left origin) streamed into the canvas and traced
+the finger. Mechanism B (the app-level `NSEvent` monitor) also fired, giving a
+backup path. Hundreds of events captured cleanly in a single drag.
+
+**Decision:** ship v2 on the documented mechanism-A route (NSView +
+`makeFirstResponder`). The `QGraphicsScene` fallback and the private
+`MultitouchSupport.framework` are **not** needed.
+
 ## Status
 
 Spike — not production code. Depends on `pyobjc-framework-Cocoa` + `-Quartz`.

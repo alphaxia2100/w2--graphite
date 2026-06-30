@@ -87,7 +87,7 @@ Runs inside Anki's reviewer webview (`QWebEngineView`), injected via `gui_hooks.
 
 **v1 vs v2 (de-risked):**
 - **v1 (ship-safe):** Excalidraw editor with **relative pointer/stylus drawing + photo-upload fallback**. Delivers Goals A + the judging graph today; no native code.
-- **v2 (opt-in):** the NSTouch lock-in layer above. **Gated by a de-risk spike** — the one unproven point is whether a sibling/overlay `NSView` reliably wins indirect touches over Chromium's NSView; build a throwaway PyObjC+PyQt6 prototype that just logs `normalizedPosition` *before* committing. If it fails, fall back to a native `QGraphicsScene` surface fed by the same NSTouch stream (still public API) — **not** the private framework.
+- **v2 (opt-in):** the NSTouch lock-in layer above. The one unproven point — whether an `NSView` over Chromium's NSView reliably wins indirect touches — has now been **resolved**: ✅ **the de-risk spike PASSED (2026-06-30)**. A first-responder `NSView` over `QWebEngineView` receives indirect `NSTouch` events and `normalizedPosition` flows into the canvas (mechanism A); an app-level `NSEvent` monitor also works as a backup (mechanism B). v2 ships on mechanism A; the `QGraphicsScene` fallback and the private `MultitouchSupport.framework` are **not** needed. See [`experiments/trackpad-spike/`](experiments/trackpad-spike/).
 
 ## 8. Modes: non-AI vs AI
 
@@ -132,7 +132,7 @@ Grade acknowledged < 50 ms p95; next card < 100 ms p95; dashboard first load < 1
 
 1. **Editor v1 (Goal A).** Excalidraw as a React island in the reviewer; self-hosted assets; mouse/stylus drawing + photo-upload fallback. **Ship.**
 2. **Judging-graph extraction.** `getSceneElements()` → typed node/edge graph stored on the card; non-AI self-judge against the reference. Validates the judging story on real cards.
-3. **NSTouch spike (de-risk gate).** Throwaway PyObjC+PyQt6 prototype logging `normalizedPosition` from an NSView over the webview. **Go/no-go for v2.**
+3. ~~**NSTouch spike (de-risk gate).**~~ ✅ **DONE** — `normalizedPosition` captured over the webview via a first-responder NSView ([`experiments/trackpad-spike/`](experiments/trackpad-spike/)). v2 unblocked.
 4. **Lock-in v2 (Goal B).** Borderless overlay NSView, single-finger absolute mapping, cursor decouple/hide on lock, outline + brush indicator, `pycmd` bridge to the canvas. Ship **opt-in**.
 5. **Rust mastery query + three-score dashboard.** (Can proceed in parallel with 1–2.)
 6. **AI judge + eval gates** (§10), then the **ablation** (§14).
@@ -146,7 +146,7 @@ Grade acknowledged < 50 ms p95; next card < 100 ms p95; dashboard first load < 1
 
 | Risk | Mitigation |
 |---|---|
-| **Trackpad NSView-over-Chromium** touch capture is unproven (only thin evidence). | Spike it first (milestone 3) as a hard go/no-go; `QGraphicsScene` fallback; never the private framework. |
+| ~~**Trackpad NSView-over-Chromium** touch capture is unproven.~~ **RESOLVED** ✅ | Spike passed (2026-06-30): mechanism A (first-responder NSView) captures indirect touches over Chromium; B (NSEvent monitor) is a backup. Fallback no longer needed. |
 | Drawing trains a skill an **MCQ exam doesn't directly reward**. | Measure construction quality as a *separate* outcome; don't credit it toward the MCQ readiness number absent evidence. |
 | **Per-minute cost** — drawing is ~2–3× slower. | Pre-register the per-minute bar; report a tie-at-higher-cost as a loss. |
 | **AI misreads** hand-drawn topology. | Extract-then-judge, UNSURE-by-default, beat the GED baseline, strict abstention. |
