@@ -17,9 +17,14 @@ PORT = 8137
 
 class Page(QWebEnginePage):
     def javaScriptConsoleMessage(self, level, message, line, source):
-        lvl = {0: "LOG", 1: "WARN", 2: "ERR"}.get(int(level), str(level))
+        # In PyQt6 `level` is a JavaScriptConsoleMessageLevel enum (has .value).
+        code = getattr(level, "value", level)
+        lvl = {0: "LOG", 1: "WARN", 2: "ERR"}.get(code, str(level))
         src = (source or "").rsplit("/", 1)[-1]
-        print(f"[console:{lvl}] {message}  ({src}:{line})", flush=True)
+        try:
+            print(f"[console:{lvl}] {message}  ({src}:{line})", flush=True)
+        except Exception:
+            pass
 
 
 def serve():
