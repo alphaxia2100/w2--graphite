@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <title>Draw editor v1</title>
-<link rel="stylesheet" href="https://esm.sh/@excalidraw/excalidraw@0.18.0/index.css" />
+<link rel="stylesheet" href="https://unpkg.com/@excalidraw/excalidraw@0.18.0/dist/prod/index.css" />
 <style>
   :root { --bar: 46px; }
   html, body { margin: 0; height: 100%; width: 100%; font: 14px -apple-system, "Segoe UI", sans-serif; }
@@ -153,13 +153,39 @@
     status("self-graded: " + grade + " (" + record.rubricSelfScore + ")");
   }));
 
+  // ---- self-test: inject a drawing, reveal, and self-grade (no human needed) ----
+  async function runSelfTest() {
+    for (let k = 0; k < 60 && !REF; k++) await new Promise(r => setTimeout(r, 100));
+    const Exc = window.__ExcMod;
+    const sk = [
+      { type: "rectangle", id: "ocean", x: 80, y: 360, width: 130, height: 60, label: { text: "Ocean" } },
+      { type: "rectangle", id: "atmos", x: 80, y: 90, width: 150, height: 60, label: { text: "Atmosphere" } },
+      { type: "rectangle", id: "clouds", x: 380, y: 90, width: 130, height: 60, label: { text: "Clouds" } },
+      { type: "rectangle", id: "land", x: 380, y: 360, width: 130, height: 60, label: { text: "Land" } },
+      { type: "arrow", x: 145, y: 355, width: 0, height: -200, start: { id: "ocean" }, end: { id: "atmos" }, label: { text: "Evaporation" } },
+      { type: "arrow", x: 235, y: 120, width: 140, height: 0, start: { id: "atmos" }, end: { id: "clouds" }, label: { text: "Condensation" } },
+      { type: "arrow", x: 445, y: 155, width: 0, height: 200, start: { id: "clouds" }, end: { id: "land" }, label: { text: "Precipitation" } },
+      { type: "arrow", x: 375, y: 390, width: -160, height: 0, start: { id: "land" }, end: { id: "ocean" }, label: { text: "Runoff" } },
+    ];
+    const els = Exc.convertToExcalidrawElements(sk);
+    window.__exc.updateScene({ elements: els });
+    console.log("SELFTEST: injected " + els.length + " elements");
+    await new Promise(r => setTimeout(r, 400));
+    showReveal();
+    await new Promise(r => setTimeout(r, 300));
+    document.querySelectorAll("#rv-rubric input").forEach(i => (i.checked = true));
+    document.querySelector('.grades button[data-g="good"]').click();
+    console.log("SELFTEST: complete");
+  }
+
   // ---- mount Excalidraw (verified working) ----
   try {
     status("importing react + excalidraw…");
     const React = (await import("react")).default;
     const { createRoot } = await import("react-dom/client");
-    window.EXCALIDRAW_ASSET_PATH = "https://esm.sh/@excalidraw/excalidraw@0.18.0/dist/prod/";
+    window.EXCALIDRAW_ASSET_PATH = "https://unpkg.com/@excalidraw/excalidraw@0.18.0/dist/prod/";
     const Exc = await import("@excalidraw/excalidraw");
+    window.__ExcMod = Exc;
     status("mounting…");
     createRoot($("app")).render(
       React.createElement(Exc.Excalidraw, {
@@ -168,6 +194,7 @@
           $("done").disabled = false;
           console.log("EDITOR_MOUNTED");
           status("editor ready — draw the water cycle, then click Done");
+          if (new URLSearchParams(location.search).get("selftest")) setTimeout(runSelfTest, 900);
         },
       })
     );
