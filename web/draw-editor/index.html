@@ -5,9 +5,40 @@
 <title>Draw editor v1</title>
 <link rel="stylesheet" href="https://esm.sh/@excalidraw/excalidraw@0.18.0/index.css" />
 <style>
-  html, body, #app { margin: 0; height: 100%; width: 100%; }
-  #status { position: fixed; bottom: 8px; left: 10px; z-index: 5;
-            font: 12px -apple-system, sans-serif; color: #64748b; }
+  :root { --bar: 46px; }
+  html, body { margin: 0; height: 100%; width: 100%; font: 14px -apple-system, "Segoe UI", sans-serif; }
+  #app { position: absolute; top: var(--bar); left: 0; right: 0; bottom: 0; }
+  #promptbar { position: fixed; top: 0; left: 0; right: 0; height: var(--bar); z-index: 6;
+    display: flex; align-items: center; gap: 12px; padding: 0 12px; box-sizing: border-box;
+    background: #0f172a; color: #e2e8f0; }
+  #promptbar .p { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #promptbar b { color: #7dd3fc; }
+  button.primary { background: #2563eb; color: #fff; border: 0; border-radius: 8px;
+    padding: 8px 14px; font-weight: 500; cursor: pointer; }
+  button.primary:hover { background: #1d4ed8; }
+  #status { position: fixed; bottom: 8px; left: 10px; z-index: 5; font-size: 12px; color: #64748b; }
+  /* reveal overlay */
+  #reveal { position: fixed; inset: 0; z-index: 10; display: none;
+    background: rgba(15,23,42,.55); align-items: center; justify-content: center; }
+  #reveal .card { background: #fff; color: #0f172a; width: min(860px, 92vw); max-height: 88vh;
+    overflow: auto; border-radius: 14px; padding: 22px 26px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  #reveal h2 { margin: 0 0 4px; font-size: 19px; font-weight: 500; }
+  #reveal h3 { font-size: 15px; font-weight: 500; margin: 18px 0 8px; color: #334155; }
+  #reveal .sub { color: #64748b; font-size: 13px; margin-bottom: 6px; }
+  .rubric { list-style: none; padding: 0; margin: 0; }
+  .rubric li { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-top: 1px solid #eef2f7; }
+  .rubric input { margin-top: 3px; transform: scale(1.15); }
+  .rubric .w { color: #94a3b8; font-size: 12px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .panel { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; }
+  .panel ul { margin: 6px 0 0; padding-left: 18px; } .panel li { margin: 3px 0; }
+  .muted { color: #64748b; }
+  .grades { display: flex; gap: 10px; margin-top: 18px; }
+  .grades button { flex: 1; border: 1px solid #cbd5e1; background: #fff; border-radius: 10px;
+    padding: 12px; font-weight: 500; cursor: pointer; }
+  .grades button:hover { border-color: #2563eb; color: #1d4ed8; }
+  .g-again { color: #b91c1c; } .g-easy { color: #15803d; }
+  #done-msg { margin-top: 14px; color: #15803d; font-weight: 500; display: none; }
 </style>
 <script type="importmap">
 {
@@ -22,31 +53,125 @@
 </script>
 </head>
 <body>
+<div id="promptbar">
+  <div class="p"><b>Prompt:</b> <span id="prompt">loading…</span></div>
+  <button class="primary" id="done" disabled>Done — reveal &amp; self-judge</button>
+</div>
 <div id="app"></div>
 <div id="status">loading editor…</div>
+
+<div id="reveal"><div class="card">
+  <h2 id="rv-title">Reference</h2>
+  <div class="sub">Compare your drawing to the reference, then grade yourself honestly.</div>
+  <h3>Did you get these? (tick what your drawing actually showed)</h3>
+  <ul class="rubric" id="rv-rubric"></ul>
+  <div class="cols">
+    <div><h3>Reference</h3><div class="panel" id="rv-reference"></div></div>
+    <div><h3>What we read from your drawing</h3><div class="panel" id="rv-extracted"></div></div>
+  </div>
+  <h3>Self-grade</h3>
+  <div class="grades">
+    <button class="g-again" data-g="again">Again</button>
+    <button data-g="hard">Hard</button>
+    <button data-g="good">Good</button>
+    <button class="g-easy" data-g="easy">Easy</button>
+  </div>
+  <div id="done-msg">Logged ✓ — (v1 has one card; reload to try again.)</div>
+</div></div>
+
 <script type="module">
-  const status = (m) => { document.getElementById("status").textContent = m; console.log("STATUS: " + m); };
+  const $ = (id) => document.getElementById(id);
+  const status = (m) => { $("status").textContent = m; console.log("STATUS: " + m); };
   window.addEventListener("error", (e) => console.log("WINDOW_ERROR: " + (e.message || e)));
   window.addEventListener("unhandledrejection", (e) => console.log("PROMISE_REJECTION: " + (e.reason && e.reason.message || e.reason)));
+
+  let REF = null;
+  fetch("./reference-water-cycle.json").then(r => r.json()).then(j => {
+    REF = j; $("prompt").textContent = j.prompt; $("rv-title").textContent = "Reference — " + j.title;
+  }).catch(e => console.log("REF_LOAD_FAIL: " + e));
+
+  // ---- extract a typed graph from the Excalidraw scene ----
+  const SHAPE = new Set(["rectangle", "ellipse", "diamond"]);
+  function extract() {
+    const els = (window.__exc?.getSceneElements?.() || []).filter(e => !e.isDeleted);
+    const textByContainer = {};
+    for (const e of els) if (e.type === "text" && e.containerId) textByContainer[e.containerId] = (e.text || "").trim();
+    const nodes = [], nodeLabel = {};
+    for (const e of els) if (SHAPE.has(e.type)) {
+      const label = textByContainer[e.id] || "(unlabeled)";
+      nodeLabel[e.id] = label; nodes.push({ id: e.id, label });
+    }
+    const edges = [];
+    for (const e of els) if (e.type === "arrow" || e.type === "line") {
+      const from = e.startBinding && nodeLabel[e.startBinding.elementId];
+      const to = e.endBinding && nodeLabel[e.endBinding.elementId];
+      edges.push({ from: from || "?", to: to || "?", label: textByContainer[e.id] || "" });
+    }
+    const freehand = els.filter(e => e.type === "freedraw").length;
+    return { nodes, edges, freehand, raw: els.length };
+  }
+
+  // ---- render the reveal panel ----
+  function resolve(id) { return (REF.nodes.find(n => n.id === id) || {}).label || id; }
+  function showReveal() {
+    const g = extract();
+    console.log("EXTRACTED_GRAPH " + JSON.stringify({ nodes: g.nodes.map(n => n.label), edges: g.edges, freehand: g.freehand }));
+
+    // self-check rubric
+    $("rv-rubric").innerHTML = REF.rubric.map((it, i) =>
+      `<li><input type="checkbox" id="rb${i}" data-w="${it.weight}"><label for="rb${i}">${it.text}
+        <span class="w">(×${it.weight})</span></label></li>`).join("");
+
+    // reference panel
+    const reqNodes = REF.nodes.filter(n => n.required).map(n => n.label);
+    const reqEdges = REF.edges.filter(e => e.required)
+      .map(e => `${e.label}: ${resolve(e.from)} → ${resolve(e.to)}${e.direction && e.direction !== "any" ? " (" + e.direction + ")" : ""}`);
+    $("rv-reference").innerHTML =
+      `<div><b>Reservoirs (nodes):</b><ul>${reqNodes.map(n => `<li>${n}</li>`).join("")}</ul></div>
+       <div><b>Processes (edges):</b><ul>${reqEdges.map(e => `<li>${e}</li>`).join("")}</ul></div>`;
+
+    // extracted panel
+    $("rv-extracted").innerHTML =
+      `<div class="muted">${g.raw} shapes total · ${g.freehand} freehand strokes</div>
+       <div><b>Nodes read:</b> ${g.nodes.length ? g.nodes.map(n => n.label).join(", ") : "<span class='muted'>none</span>"}</div>
+       <div style="margin-top:6px"><b>Edges read:</b><ul>${
+         g.edges.length ? g.edges.map(e => `<li>${e.from} → ${e.to}${e.label ? " (" + e.label + ")" : ""}</li>`).join("") : "<li class='muted'>none</li>"}</ul></div>`;
+
+    $("done-msg").style.display = "none";
+    $("reveal").style.display = "flex";
+  }
+
+  document.querySelectorAll(".grades button").forEach(b => b.addEventListener("click", () => {
+    const grade = b.dataset.g;
+    const items = [...document.querySelectorAll("#rv-rubric input")];
+    const gotW = items.filter(i => i.checked).reduce((s, i) => s + (+i.dataset.w), 0);
+    const totW = items.reduce((s, i) => s + (+i.dataset.w), 0);
+    const record = { card: REF.id, selfGrade: grade, rubricSelfScore: gotW + "/" + totW,
+                     checked: items.filter(i => i.checked).length, of: items.length };
+    console.log("SELF_GRADE_RECORD " + JSON.stringify(record));
+    $("done-msg").style.display = "block";
+    status("self-graded: " + grade + " (" + record.rubricSelfScore + ")");
+  }));
+
+  // ---- mount Excalidraw (verified working) ----
   try {
     status("importing react + excalidraw…");
     const React = (await import("react")).default;
     const { createRoot } = await import("react-dom/client");
-    // Fonts/assets path (avoids unpkg default); render still works if a font 404s.
     window.EXCALIDRAW_ASSET_PATH = "https://esm.sh/@excalidraw/excalidraw@0.18.0/dist/prod/";
     const Exc = await import("@excalidraw/excalidraw");
     status("mounting…");
-    const root = createRoot(document.getElementById("app"));
-    root.render(
+    createRoot($("app")).render(
       React.createElement(Exc.Excalidraw, {
         excalidrawAPI: (api) => {
-          window.__exc = api;
-          window.EDITOR_MOUNTED = true;
+          window.__exc = api; window.EDITOR_MOUNTED = true;
+          $("done").disabled = false;
           console.log("EDITOR_MOUNTED");
-          status("editor ready — draw something");
+          status("editor ready — draw the water cycle, then click Done");
         },
       })
     );
+    $("done").addEventListener("click", () => { if (REF) showReveal(); else status("reference still loading…"); });
   } catch (err) {
     console.log("MOUNT_EXCEPTION: " + (err && err.stack || err && err.message || err));
     status("mount failed — see console");
