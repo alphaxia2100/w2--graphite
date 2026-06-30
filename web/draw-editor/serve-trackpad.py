@@ -92,11 +92,11 @@ def event_handler(event):
             return event
         if CTRL.locked:
             ts = event.touchesMatchingPhase_inView_(NSTouchPhaseAny, None)
-            if ts is not None and ts.count() > 0:
+            # draw only with a SINGLE finger; 2+ fingers fall through to Excalidraw
+            if ts is not None and ts.count() == 1:
                 for t in ts:
                     np = t.normalizedPosition()
                     CTRL.forward(PHASE.get(int(t.phase()), "moved"), np.x, np.y)
-                    break   # single finger
     except Exception:
         pass
     return event

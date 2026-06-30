@@ -65,7 +65,7 @@
 <div id="promptbar">
   <div class="p"><b>Prompt:</b> <span id="prompt">loading…</span></div>
   <label class="opt"><input type="checkbox" id="opt-checklist" /> self-check list</label>
-  <button class="primary" id="tp-lock" style="display:none; background:#0d9488;">✋ Trackpad draw</button>
+  <button class="primary" id="tp-lock" style="display:none; background:#0d9488;">✋ Trackpad draw (Space)</button>
   <button class="primary" id="done" disabled>Done — reveal &amp; self-judge</button>
 </div>
 <div id="app"></div>
@@ -216,7 +216,7 @@
       let o = document.getElementById("tp-outline");
       if (!o) {
         o = document.createElement("div"); o.id = "tp-outline";
-        o.innerHTML = '<div class="lbl">trackpad — draw with one finger · Esc to stop</div><div id="tp-brush"></div>';
+        o.innerHTML = '<div class="lbl">locked — one finger draws · Space or Esc to unlock</div><div id="tp-brush"></div>';
         document.body.appendChild(o);
       }
       return o;
@@ -301,6 +301,18 @@
           if (_p.get("trackpad")) {
             const tb = $("tp-lock"); tb.style.display = "";
             tb.addEventListener("click", () => window.__trackpad.lock());
+            status("trackpad mode — Space to lock & draw · 2-finger drag pans · pinch zooms");
+            // Space toggles lock (capture phase so Excalidraw's space-pan is suppressed),
+            // but never while editing a text label.
+            window.addEventListener("keydown", (e) => {
+              if (e.code !== "Space" && e.key !== " ") return;
+              let editing = false;
+              try { const st = window.__exc.getAppState(); editing = !!(st.editingElement || st.editingTextElement || st.editingLinearElement); } catch (_) {}
+              const tag = (document.activeElement && document.activeElement.tagName) || "";
+              if (editing || tag === "INPUT" || tag === "TEXTAREA") return;   // let space type
+              e.preventDefault(); e.stopImmediatePropagation();
+              window.__trackpad.isLocked() ? window.__trackpad.unlock() : window.__trackpad.lock();
+            }, true);
           }
           if (_p.get("tptest")) setTimeout(runTrackpadTest, 1200);
         },
