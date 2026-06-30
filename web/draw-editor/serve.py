@@ -44,7 +44,8 @@ def main():
     view.setPage(Page(view))
     win.setCentralWidget(view)
     win.show(); win.raise_(); win.activateWindow()
-    view.load(QUrl(f"http://127.0.0.1:{PORT}/index.html"))
+    query = sys.argv[1] if len(sys.argv) > 1 else ""   # e.g. "?selftest=1"
+    view.load(QUrl(f"http://127.0.0.1:{PORT}/index.html{query}"))
 
     def check(tag):
         view.page().runJavaScript(
