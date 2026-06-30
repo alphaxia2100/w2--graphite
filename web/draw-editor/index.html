@@ -13,6 +13,8 @@
     background: #0f172a; color: #e2e8f0; }
   #promptbar .p { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #promptbar b { color: #7dd3fc; }
+  #promptbar .opt { display: flex; align-items: center; gap: 6px; font-size: 12px;
+    color: #cbd5e1; white-space: nowrap; cursor: pointer; user-select: none; }
   button.primary { background: #2563eb; color: #fff; border: 0; border-radius: 8px;
     padding: 8px 14px; font-weight: 500; cursor: pointer; }
   button.primary:hover { background: #1d4ed8; }
@@ -55,6 +57,7 @@
 <body>
 <div id="promptbar">
   <div class="p"><b>Prompt:</b> <span id="prompt">loading…</span></div>
+  <label class="opt"><input type="checkbox" id="opt-checklist" /> self-check list</label>
   <button class="primary" id="done" disabled>Done — reveal &amp; self-judge</button>
 </div>
 <div id="app"></div>
@@ -63,8 +66,10 @@
 <div id="reveal"><div class="card">
   <h2 id="rv-title">Reference</h2>
   <div class="sub">Compare your drawing to the reference, then grade yourself honestly.</div>
-  <h3>Did you get these? (tick what your drawing actually showed)</h3>
-  <ul class="rubric" id="rv-rubric"></ul>
+  <div id="rv-rubric-section">
+    <h3>Did you get these? (tick what your drawing actually showed)</h3>
+    <ul class="rubric" id="rv-rubric"></ul>
+  </div>
   <div class="cols">
     <div><h3>Reference</h3><div class="panel" id="rv-reference"></div></div>
     <div><h3>What we read from your drawing</h3><div class="panel" id="rv-extracted"></div></div>
@@ -89,6 +94,13 @@
   fetch("./reference-water-cycle.json").then(r => r.json()).then(j => {
     REF = j; $("prompt").textContent = j.prompt; $("rv-title").textContent = "Reference — " + j.title;
   }).catch(e => console.log("REF_LOAD_FAIL: " + e));
+
+  // self-check list: off by default, remembered across sessions
+  (function () {
+    const cb = $("opt-checklist");
+    cb.checked = localStorage.getItem("opt-checklist") === "1";
+    cb.addEventListener("change", () => localStorage.setItem("opt-checklist", cb.checked ? "1" : "0"));
+  })();
 
   // ---- extract a typed graph from the Excalidraw scene ----
   const SHAPE = new Set(["rectangle", "ellipse", "diamond"]);
@@ -117,10 +129,12 @@
     const g = extract();
     console.log("EXTRACTED_GRAPH " + JSON.stringify({ nodes: g.nodes.map(n => n.label), edges: g.edges, freehand: g.freehand }));
 
-    // self-check rubric
-    $("rv-rubric").innerHTML = REF.rubric.map((it, i) =>
+    // optional self-check rubric (off by default)
+    const useChecklist = $("opt-checklist").checked;
+    $("rv-rubric-section").style.display = useChecklist ? "" : "none";
+    $("rv-rubric").innerHTML = useChecklist ? REF.rubric.map((it, i) =>
       `<li><input type="checkbox" id="rb${i}" data-w="${it.weight}"><label for="rb${i}">${it.text}
-        <span class="w">(×${it.weight})</span></label></li>`).join("");
+        <span class="w">(×${it.weight})</span></label></li>`).join("") : "";
 
     // reference panel
     const reqNodes = REF.nodes.filter(n => n.required).map(n => n.label);
@@ -144,13 +158,17 @@
   document.querySelectorAll(".grades button").forEach(b => b.addEventListener("click", () => {
     const grade = b.dataset.g;
     const items = [...document.querySelectorAll("#rv-rubric input")];
-    const gotW = items.filter(i => i.checked).reduce((s, i) => s + (+i.dataset.w), 0);
-    const totW = items.reduce((s, i) => s + (+i.dataset.w), 0);
-    const record = { card: REF.id, selfGrade: grade, rubricSelfScore: gotW + "/" + totW,
-                     checked: items.filter(i => i.checked).length, of: items.length };
+    const record = { card: REF.id, selfGrade: grade };
+    if (items.length) {
+      const gotW = items.filter(i => i.checked).reduce((s, i) => s + (+i.dataset.w), 0);
+      const totW = items.reduce((s, i) => s + (+i.dataset.w), 0);
+      record.rubricSelfScore = gotW + "/" + totW;
+      record.checked = items.filter(i => i.checked).length;
+      record.of = items.length;
+    }
     console.log("SELF_GRADE_RECORD " + JSON.stringify(record));
     $("done-msg").style.display = "block";
-    status("self-graded: " + grade + " (" + record.rubricSelfScore + ")");
+    status("self-graded: " + grade + (record.rubricSelfScore ? " (" + record.rubricSelfScore + ")" : ""));
   }));
 
   // ---- self-test: inject a drawing, reveal, and self-grade (no human needed) ----
