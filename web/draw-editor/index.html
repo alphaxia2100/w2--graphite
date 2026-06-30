@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Draw editor v1</title>
+<link rel="stylesheet" href="https://esm.sh/@excalidraw/excalidraw@0.18.0/index.css" />
+<style>
+  html, body, #app { margin: 0; height: 100%; width: 100%; }
+  #status { position: fixed; bottom: 8px; left: 10px; z-index: 5;
+            font: 12px -apple-system, sans-serif; color: #64748b; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "react/jsx-runtime": "https://esm.sh/react@19.0.0/jsx-runtime",
+    "@excalidraw/excalidraw": "https://esm.sh/@excalidraw/excalidraw@0.18.0?external=react,react-dom"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="status">loading editor…</div>
+<script type="module">
+  const status = (m) => { document.getElementById("status").textContent = m; console.log("STATUS: " + m); };
+  window.addEventListener("error", (e) => console.log("WINDOW_ERROR: " + (e.message || e)));
+  window.addEventListener("unhandledrejection", (e) => console.log("PROMISE_REJECTION: " + (e.reason && e.reason.message || e.reason)));
+  try {
+    status("importing react + excalidraw…");
+    const React = (await import("react")).default;
+    const { createRoot } = await import("react-dom/client");
+    // Fonts/assets path (avoids unpkg default); render still works if a font 404s.
+    window.EXCALIDRAW_ASSET_PATH = "https://esm.sh/@excalidraw/excalidraw@0.18.0/dist/prod/";
+    const Exc = await import("@excalidraw/excalidraw");
+    status("mounting…");
+    const root = createRoot(document.getElementById("app"));
+    root.render(
+      React.createElement(Exc.Excalidraw, {
+        excalidrawAPI: (api) => {
+          window.__exc = api;
+          window.EDITOR_MOUNTED = true;
+          console.log("EDITOR_MOUNTED");
+          status("editor ready — draw something");
+        },
+      })
+    );
+  } catch (err) {
+    console.log("MOUNT_EXCEPTION: " + (err && err.stack || err && err.message || err));
+    status("mount failed — see console");
+  }
+</script>
+</body>
+</html>
