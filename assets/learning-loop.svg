@@ -1,0 +1,59 @@
+<svg width="680" viewBox="0 0 680 392" role="img" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>The draw-it-from-blank study loop</title>
+<desc>A closed five-step loop: a prompt asks the learner to draw an AWS architecture from blank; the learner draws and uploads a photo; an AI describes and checks it against a reference shown only after the attempt; the learner makes the final self-grade; FSRS schedules the next spaced review; the loop repeats. The accumulated data produces three separate scores — memory, performance, and readiness — each with an honest range.</desc>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<!-- top row -->
+<g>
+  <rect x="40" y="50" width="160" height="56" rx="8" fill="#CCFBF1" stroke="#0D9488"/>
+  <text x="120" y="78" text-anchor="middle" font-size="14" font-weight="500" fill="#115E59">Prompt</text>
+  <text x="120" y="95" text-anchor="middle" font-size="12" fill="#0F766E">draw from blank</text>
+</g>
+<g>
+  <rect x="260" y="50" width="160" height="56" rx="8" fill="#DBEAFE" stroke="#2563EB"/>
+  <text x="340" y="78" text-anchor="middle" font-size="14" font-weight="500" fill="#1E3A8A">Draw &amp; upload</text>
+  <text x="340" y="95" text-anchor="middle" font-size="12" fill="#1D4ED8">photo of the sketch</text>
+</g>
+<g>
+  <rect x="480" y="50" width="160" height="56" rx="8" fill="#CCFBF1" stroke="#0D9488"/>
+  <text x="560" y="78" text-anchor="middle" font-size="14" font-weight="500" fill="#115E59">AI describes</text>
+  <text x="560" y="95" text-anchor="middle" font-size="12" fill="#0F766E">reference shown after</text>
+</g>
+
+<!-- bottom row -->
+<g>
+  <rect x="480" y="170" width="160" height="56" rx="8" fill="#DBEAFE" stroke="#2563EB"/>
+  <text x="560" y="198" text-anchor="middle" font-size="14" font-weight="500" fill="#1E3A8A">Self-grade</text>
+  <text x="560" y="215" text-anchor="middle" font-size="12" fill="#1D4ED8">learner's final call</text>
+</g>
+<g>
+  <rect x="260" y="170" width="160" height="56" rx="8" fill="#CCFBF1" stroke="#0D9488"/>
+  <text x="340" y="198" text-anchor="middle" font-size="14" font-weight="500" fill="#115E59">FSRS schedules</text>
+  <text x="340" y="215" text-anchor="middle" font-size="12" fill="#0F766E">spaced next review</text>
+</g>
+
+<!-- arrows -->
+<line x1="200" y1="78" x2="258" y2="78" stroke="#64748B" stroke-width="1.5" marker-end="url(#ar)"/>
+<line x1="420" y1="78" x2="478" y2="78" stroke="#64748B" stroke-width="1.5" marker-end="url(#ar)"/>
+<line x1="560" y1="106" x2="560" y2="168" stroke="#64748B" stroke-width="1.5" marker-end="url(#ar)"/>
+<line x1="480" y1="198" x2="422" y2="198" stroke="#64748B" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M260 206 C 175 206 120 175 120 108" fill="none" stroke="#64748B" stroke-width="1.5" marker-end="url(#ar)"/>
+<line x1="340" y1="226" x2="340" y2="268" stroke="#64748B" stroke-width="1.5" marker-end="url(#ar)"/>
+
+<!-- output -->
+<g>
+  <rect x="140" y="270" width="400" height="50" rx="8" fill="#F1F5F9" stroke="#64748B"/>
+  <text x="340" y="292" text-anchor="middle" font-size="14" font-weight="500" fill="#334155">Three separate scores, each with a range</text>
+  <text x="340" y="309" text-anchor="middle" font-size="12" fill="#475569">memory · performance · readiness</text>
+</g>
+
+<!-- legend -->
+<rect x="208" y="344" width="13" height="13" rx="3" fill="#DBEAFE" stroke="#2563EB"/>
+<text x="227" y="354" font-size="12" fill="#475569">learner acts</text>
+<rect x="338" y="344" width="13" height="13" rx="3" fill="#CCFBF1" stroke="#0D9488"/>
+<text x="357" y="354" font-size="12" fill="#475569">system acts</text>
+</svg>
