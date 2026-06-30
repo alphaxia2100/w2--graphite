@@ -250,7 +250,10 @@
       try { window.__exc.setActiveTool({ type: "selection" }); } catch (e) {}
       document.body.classList.remove("tp-locked");
       document.title = "TP:unlock";
-      console.log("TRACKPAD unlocked");
+      try {
+        const n = window.__exc.getSceneElements().filter(e => !e.isDeleted && e.type === "freedraw").length;
+        console.log("TRACKPAD unlocked; freedraw strokes on canvas=" + n);
+      } catch (e) { console.log("TRACKPAD unlocked"); }
     }
     function onTouch(phase, nx, ny) {
       if (!locked) return;
