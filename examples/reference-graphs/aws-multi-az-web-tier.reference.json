@@ -1,0 +1,32 @@
+{
+  "id": "aws-multi-az-web-tier",
+  "domain": "aws-saa-c03",
+  "title": "Multi-AZ resilient web tier with private DB and S3 static assets",
+  "prompt": "Design a highly available web application: public-facing load balancing, auto-scaled app servers across two Availability Zones, a private relational database with failover, and static assets served from S3. Draw the VPC, subnets, AZ boundaries, and how traffic flows.",
+  "nodes": [
+    { "id": "igw",   "type": "gateway",  "label": "Internet Gateway",        "attrs": { "scope": "vpc" },                 "required": true },
+    { "id": "alb",   "type": "lb",       "label": "Application Load Balancer","attrs": { "subnet": "public", "spansAZs": 2 }, "required": true },
+    { "id": "asg",   "type": "compute",  "label": "EC2 Auto Scaling Group",  "attrs": { "subnet": "private", "spansAZs": 2 }, "required": true },
+    { "id": "rds",   "type": "database", "label": "RDS (Multi-AZ)",          "attrs": { "subnet": "private", "multiAz": true }, "required": true },
+    { "id": "s3",    "type": "storage",  "label": "S3 (static assets)",      "attrs": { "scope": "regional" },            "required": true },
+    { "id": "natgw", "type": "gateway",  "label": "NAT Gateway",             "attrs": { "subnet": "public" },             "required": false },
+    { "id": "az_a",  "type": "az",       "label": "Availability Zone A",                                                  "required": true },
+    { "id": "az_b",  "type": "az",       "label": "Availability Zone B",                                                  "required": true }
+  ],
+  "edges": [
+    { "id": "users_alb", "from": "igw", "to": "alb", "label": "inbound HTTPS",         "required": true },
+    { "id": "alb_asg",   "from": "alb", "to": "asg", "label": "routes-to",             "required": true },
+    { "id": "asg_rds",   "from": "asg", "to": "rds", "label": "reads/writes",          "required": true },
+    { "id": "asg_s3",    "from": "asg", "to": "s3",  "label": "serves/reads assets",   "required": false },
+    { "id": "asg_nat",   "from": "asg", "to": "natgw","label": "outbound via NAT",     "required": false }
+  ],
+  "rubric": [
+    { "id": "r1", "kind": "node",       "text": "ALB is in a PUBLIC subnet and is the entry point",                       "weight": 2 },
+    { "id": "r2", "kind": "constraint", "text": "ALB and the app tier span at least TWO Availability Zones",              "weight": 2 },
+    { "id": "r3", "kind": "node",       "text": "App servers run in an Auto Scaling Group in PRIVATE subnets",            "weight": 2 },
+    { "id": "r4", "kind": "constraint", "text": "Database is in a PRIVATE subnet (not publicly reachable)",               "weight": 2 },
+    { "id": "r5", "kind": "constraint", "text": "Database is Multi-AZ (standby in a second AZ with failover)",            "weight": 2 },
+    { "id": "r6", "kind": "process",    "text": "Traffic flows IGW -> ALB -> ASG -> RDS",                                 "weight": 1 },
+    { "id": "r7", "kind": "node",       "text": "Static assets are served from S3, not the app servers' disk",            "weight": 1 }
+  ]
+}

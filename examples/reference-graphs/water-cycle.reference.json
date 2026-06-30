@@ -1,0 +1,34 @@
+{
+  "id": "water-cycle-basic",
+  "domain": "earth-science",
+  "title": "The water cycle (basic)",
+  "prompt": "Draw the water cycle from memory. Show the major water reservoirs and the processes that move water between them. Label the energy source and the direction of each process.",
+  "nodes": [
+    { "id": "sun",         "type": "energy-source", "label": "Sun",                     "required": true },
+    { "id": "ocean",       "type": "reservoir",     "label": "Ocean / water body",      "required": true },
+    { "id": "atmosphere",  "type": "reservoir",     "label": "Atmosphere (water vapor)","required": true },
+    { "id": "clouds",      "type": "reservoir",     "label": "Clouds",                  "required": true },
+    { "id": "land",        "type": "reservoir",     "label": "Land / surface",          "required": true },
+    { "id": "groundwater", "type": "reservoir",     "label": "Groundwater",             "required": false },
+    { "id": "ice",         "type": "reservoir",     "label": "Ice / snow",              "required": false }
+  ],
+  "edges": [
+    { "id": "evaporation",        "from": "ocean",      "to": "atmosphere",  "label": "Evaporation",        "direction": "up",   "required": true },
+    { "id": "transpiration",      "from": "land",       "to": "atmosphere",  "label": "Transpiration",      "direction": "up",   "required": false },
+    { "id": "condensation",       "from": "atmosphere", "to": "clouds",      "label": "Condensation",       "direction": "any",  "required": true },
+    { "id": "precipitation_land", "from": "clouds",     "to": "land",        "label": "Precipitation",      "direction": "down", "required": true },
+    { "id": "precipitation_sea",  "from": "clouds",     "to": "ocean",       "label": "Precipitation",      "direction": "down", "required": false },
+    { "id": "runoff",             "from": "land",       "to": "ocean",       "label": "Runoff / collection","direction": "any",  "required": true },
+    { "id": "infiltration",       "from": "land",       "to": "groundwater", "label": "Infiltration",       "direction": "down", "required": false },
+    { "id": "sublimation",        "from": "ice",        "to": "atmosphere",  "label": "Sublimation",        "direction": "up",   "required": false }
+  ],
+  "rubric": [
+    { "id": "r1", "kind": "node",       "text": "Includes a water body/ocean, the atmosphere/vapor, clouds, and land",   "weight": 1 },
+    { "id": "r2", "kind": "process",    "text": "Evaporation moves water from the surface UP into the atmosphere",       "weight": 2 },
+    { "id": "r3", "kind": "process",    "text": "Condensation forms clouds from water vapor",                            "weight": 1 },
+    { "id": "r4", "kind": "process",    "text": "Precipitation returns water DOWN to land/ocean",                        "weight": 2 },
+    { "id": "r5", "kind": "process",    "text": "Collection/runoff returns surface water to the ocean (the cycle closes)","weight": 2 },
+    { "id": "r6", "kind": "constraint", "text": "The Sun is shown as the energy source driving evaporation",            "weight": 1 },
+    { "id": "r7", "kind": "direction",  "text": "Process directions are correct (evaporation up, precipitation down)",   "weight": 1 }
+  ]
+}
