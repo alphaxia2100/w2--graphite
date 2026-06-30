@@ -2,7 +2,7 @@
 
 ## Owners
 
-- **Andrew Xia** — sole owner.
+- **Andrew Xia**
 
 ---
 
