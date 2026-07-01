@@ -37,7 +37,7 @@ Recognition and cloze flashcards prove you can *recognize* an answer; they never
 **Non-goals**
 - N1. Replacing FSRS / Anki's Rust scheduler (Memory rides on FSRS).
 - N2. AI grading "of record" — the learner always decides.
-- N3. Claiming the feature raises a multiple-choice *score* faster than plain Anki — measured, not promised ([BrainLift SPOV 6–7](BrainLift.md)).
+- N3. Claiming the feature raises a multiple-choice *score* faster than plain Anki — measured, not promised ([BrainLift SPOV 1–2](BrainLift.md)).
 - N4. Diagram *generation* from prompts, or production diagram/IaC audit.
 
 **Success metric** — at **equal study time** vs feature-off and plain Anki, the full feature yields better self-grade-vs-expert agreement, better delayed transfer on novel construction items, and better-calibrated readiness. Falsifiable hypothesis in §14.
@@ -60,7 +60,7 @@ Prompt (blank)  →  Build diagram in-app (or upload)  →  [AI describes + chec
 | **S1 Prompt** | Task statement only; optional pre-attempt **confidence** (1–5) for hypercorrection scheduling. Reference hidden. |
 | **S2 Build** | The **in-app editor** (§6) — primary. Photo upload available as a fallback (e.g. drew on paper). |
 | **S3 Check** | *Non-AI:* skip to reveal. *AI:* two-stage judge runs (§10), produces a per-item checklist with UNSURE. |
-| **S4 Reveal** | Reference graph (+ checklist in AI mode). **Grade buttons stay locked until this state** ([SPOV 2 & 4](BrainLift.md)). |
+| **S4 Reveal** | Reference graph (+ checklist in AI mode). **Grade buttons stay locked until this state** ([SPOV 3](BrainLift.md)). |
 | **S5 Self-grade** | Learner presses Again/Hard/Good/Easy; app logs (confidence, AI verdict if any, self-grade). |
 | **S6 Schedule** | FSRS schedules; confident-wrong drawings re-tested sooner. |
 
@@ -108,7 +108,7 @@ Runs inside Anki's reviewer webview (`QWebEngineView`), injected via `gui_hooks.
 
 ## 10. AI judge specification (AI version only)
 
-Two stages, never fused: **(1) extract** a typed candidate graph from the drawing (low-confidence topology/boundary items default to UNSURE); **(2) judge** candidate vs reference → per-rubric checklist, routing UNSURE items to the learner ([SPOV 3](BrainLift.md)). Gates: a **gold set** with human labels; the LLM judge must **beat a deterministic graph-edit-distance baseline** on held-out data or we ship the baseline + natural-language feedback only; report agreement as a range (multi-model panel); bias abstention strict (a false "you're ready" is the costliest error).
+Two stages, never fused: **(1) extract** a typed candidate graph from the drawing (low-confidence topology/boundary items default to UNSURE); **(2) judge** candidate vs reference → per-rubric checklist, routing UNSURE items to the learner ([SPOV 2](BrainLift.md)). Gates: a **gold set** with human labels; the LLM judge must **beat a deterministic graph-edit-distance baseline** on held-out data or we ship the baseline + natural-language feedback only; report agreement as a range (multi-model panel); bias abstention strict (a false "you're ready" is the costliest error).
 
 ## 11. Three-score model & honesty rule
 
@@ -118,7 +118,7 @@ Two stages, never fused: **(1) extract** a typed candidate graph from the drawin
 | **Performance** | P(construct a correct diagram for a *new* prompt) | judged construction on novel prompts | wider |
 | **Readiness** | projected exam score (e.g. SAA-C03 100–1000, domain-weighted) | Performance × coverage, propagated with FSRS | widest; **may abstain** |
 
-A clean drawing **raises Performance and widens Readiness's confidence**, never nudges the point estimate up on its own ([SPOV 5](BrainLift.md)). **Refuse-to-score** below a stated data threshold — but never withhold the *feedback*, only the *number* ([SPOV 7](BrainLift.md)).
+A clean drawing **raises Performance and widens Readiness's confidence**, never nudges the point estimate up on its own ([SPOV 3](BrainLift.md)). **Refuse-to-score** below a stated data threshold — but never withhold the *feedback*, only the *number* ([SPOV 3](BrainLift.md)).
 
 ## 12. Rust engine change
 
