@@ -1,0 +1,437 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Draw editor v1</title>
+<link rel="stylesheet" href="https://unpkg.com/@excalidraw/excalidraw@0.18.0/dist/prod/index.css" />
+<style>
+  :root { --bar: 46px; }
+  html, body { margin: 0; height: 100%; width: 100%; font: 14px -apple-system, "Segoe UI", sans-serif; }
+  #app { position: absolute; top: var(--bar); left: 0; right: 0; bottom: 0; }
+  #promptbar { position: fixed; top: 0; left: 0; right: 0; height: var(--bar); z-index: 6;
+    display: flex; align-items: center; gap: 12px; padding: 0 12px; box-sizing: border-box;
+    background: #0f172a; color: #e2e8f0; }
+  #promptbar .p { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #promptbar b { color: #7dd3fc; }
+  #promptbar .opt { display: flex; align-items: center; gap: 6px; font-size: 12px;
+    color: #cbd5e1; white-space: nowrap; cursor: pointer; user-select: none; }
+  button.primary { background: #2563eb; color: #fff; border: 0; border-radius: 8px;
+    padding: 8px 14px; font-weight: 500; cursor: pointer; }
+  button.primary:hover { background: #1d4ed8; }
+  #status { position: fixed; bottom: 8px; left: 10px; z-index: 5; font-size: 12px; color: #64748b; }
+  /* reveal overlay */
+  #reveal { position: fixed; inset: 0; z-index: 10; display: none;
+    background: rgba(15,23,42,.55); align-items: center; justify-content: center; }
+  #reveal .card { background: #fff; color: #0f172a; width: min(860px, 92vw); max-height: 88vh;
+    overflow: auto; border-radius: 14px; padding: 22px 26px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  #reveal h2 { margin: 0 0 4px; font-size: 19px; font-weight: 500; }
+  #reveal h3 { font-size: 15px; font-weight: 500; margin: 18px 0 8px; color: #334155; }
+  #reveal .sub { color: #64748b; font-size: 13px; margin-bottom: 6px; }
+  .rubric { list-style: none; padding: 0; margin: 0; }
+  .rubric li { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-top: 1px solid #eef2f7; }
+  .rubric input { margin-top: 3px; transform: scale(1.15); }
+  .rubric .w { color: #94a3b8; font-size: 12px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .panel { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; }
+  .panel ul { margin: 6px 0 0; padding-left: 18px; } .panel li { margin: 3px 0; }
+  .muted { color: #64748b; }
+  .grades { display: flex; gap: 10px; margin-top: 18px; }
+  .grades button { flex: 1; border: 1px solid #cbd5e1; background: #fff; border-radius: 10px;
+    padding: 12px; font-weight: 500; cursor: pointer; }
+  .grades button:hover { border-color: #2563eb; color: #1d4ed8; }
+  .g-again { color: #b91c1c; } .g-easy { color: #15803d; }
+  #done-msg { margin-top: 14px; color: #15803d; font-weight: 500; display: none; }
+  /* trackpad lock-in */
+  #tp-outline { position: fixed; display: none; z-index: 4; border: 2px dashed #0d9488;
+    border-radius: 10px; background: rgba(13,148,136,.06); pointer-events: none; }
+  #tp-outline.locked { border-style: solid; background: rgba(13,148,136,.02); }
+  #tp-outline .lbl { position: absolute; top: -20px; left: 0; font-size: 11px; color: #0d9488; white-space: nowrap; }
+  #tp-brush { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
+    background: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,.25); pointer-events: none; display: none; }
+  #tp-outline.locked #tp-brush { display: block; }
+  body.tp-locked { cursor: none; }
+  /* trackpad settings popover */
+  #tp-gear { background: #1e293b; color: #e2e8f0; border: 0; border-radius: 8px;
+    padding: 7px 11px; font-size: 15px; line-height: 1; cursor: pointer; }
+  #tp-settings { position: fixed; top: calc(var(--bar) + 6px); right: 12px; z-index: 8; display: none;
+    background: #fff; color: #0f172a; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 10px 14px 12px; box-shadow: 0 14px 44px rgba(0,0,0,.22); width: 280px; font-size: 13px; }
+  #tp-settings.open { display: block; }
+  #tp-settings h4 { margin: 4px 0 8px; font-size: 13px; font-weight: 500; color: #334155; }
+  #tp-settings .row { display: flex; align-items: center; gap: 8px; margin: 9px 0; }
+  #tp-settings .row > label { flex: 0 0 80px; color: #475569; }
+  #tp-settings .row input[type=range] { flex: 1; }
+  #tp-settings .row .v { flex: 0 0 34px; text-align: right; color: #64748b; font-variant-numeric: tabular-nums; }
+  #tp-settings .chk { display: flex; align-items: center; gap: 7px; color: #475569; cursor: pointer; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "react/jsx-runtime": "https://esm.sh/react@19.0.0/jsx-runtime",
+    "@excalidraw/excalidraw": "https://esm.sh/@excalidraw/excalidraw@0.18.0?external=react,react-dom"
+  }
+}
+</script>
+</head>
+<body>
+<div id="promptbar">
+  <div class="p"><b>Prompt:</b> <span id="prompt">loading…</span></div>
+  <label class="opt"><input type="checkbox" id="opt-checklist" /> self-check list</label>
+  <button class="primary" id="tp-lock" style="display:none; background:#0d9488;">✋ Trackpad draw (Space)</button>
+  <button class="primary" id="done" disabled>Done — reveal &amp; self-judge</button>
+</div>
+<div id="app"></div>
+<div id="status">loading editor…</div>
+
+<div id="reveal"><div class="card">
+  <h2 id="rv-title">Reference</h2>
+  <div class="sub">Compare your drawing to the reference, then grade yourself honestly.</div>
+  <div id="rv-rubric-section">
+    <h3>Did you get these? (tick what your drawing actually showed)</h3>
+    <ul class="rubric" id="rv-rubric"></ul>
+  </div>
+  <div class="cols">
+    <div><h3>Reference</h3><div class="panel" id="rv-reference"></div></div>
+    <div><h3>What we read from your drawing</h3><div class="panel" id="rv-extracted"></div></div>
+  </div>
+  <h3>Self-grade</h3>
+  <div class="grades">
+    <button class="g-again" data-g="again">Again</button>
+    <button data-g="hard">Hard</button>
+    <button data-g="good">Good</button>
+    <button class="g-easy" data-g="easy">Easy</button>
+  </div>
+  <div id="done-msg">Logged ✓ — (v1 has one card; reload to try again.)</div>
+</div></div>
+
+<script type="module">
+  const $ = (id) => document.getElementById(id);
+  const status = (m) => { $("status").textContent = m; console.log("STATUS: " + m); };
+  window.addEventListener("error", (e) => console.log("WINDOW_ERROR: " + (e.message || e)));
+  window.addEventListener("unhandledrejection", (e) => console.log("PROMISE_REJECTION: " + (e.reason && e.reason.message || e.reason)));
+
+  // Trackpad tunables (persisted). Faster defaults; invert covers reversed scroll.
+  const TP = Object.assign({ pan: 2.2, pinch: 1.4, smooth: 0, stroke: 1, invert: false },
+    JSON.parse(localStorage.getItem("tpSettings") || "{}"));
+  const saveTP = () => localStorage.setItem("tpSettings", JSON.stringify(TP));
+
+  let REF = null;
+  fetch("./reference-water-cycle.json").then(r => r.json()).then(j => {
+    REF = j; $("prompt").textContent = j.prompt; $("rv-title").textContent = "Reference — " + j.title;
+  }).catch(e => console.log("REF_LOAD_FAIL: " + e));
+
+  // self-check list: off by default, remembered across sessions
+  (function () {
+    const cb = $("opt-checklist");
+    cb.checked = localStorage.getItem("opt-checklist") === "1";
+    cb.addEventListener("change", () => localStorage.setItem("opt-checklist", cb.checked ? "1" : "0"));
+  })();
+
+  // ---- extract a typed graph from the Excalidraw scene ----
+  const SHAPE = new Set(["rectangle", "ellipse", "diamond"]);
+  function extract() {
+    const els = (window.__exc?.getSceneElements?.() || []).filter(e => !e.isDeleted);
+    const textByContainer = {};
+    for (const e of els) if (e.type === "text" && e.containerId) textByContainer[e.containerId] = (e.text || "").trim();
+    const nodes = [], nodeLabel = {};
+    for (const e of els) if (SHAPE.has(e.type)) {
+      const label = textByContainer[e.id] || "(unlabeled)";
+      nodeLabel[e.id] = label; nodes.push({ id: e.id, label });
+    }
+    const edges = [];
+    for (const e of els) if (e.type === "arrow" || e.type === "line") {
+      const from = e.startBinding && nodeLabel[e.startBinding.elementId];
+      const to = e.endBinding && nodeLabel[e.endBinding.elementId];
+      edges.push({ from: from || "?", to: to || "?", label: textByContainer[e.id] || "" });
+    }
+    const freehand = els.filter(e => e.type === "freedraw").length;
+    return { nodes, edges, freehand, raw: els.length };
+  }
+
+  // ---- render the reveal panel ----
+  function resolve(id) { return (REF.nodes.find(n => n.id === id) || {}).label || id; }
+  function showReveal() {
+    const g = extract();
+    console.log("EXTRACTED_GRAPH " + JSON.stringify({ nodes: g.nodes.map(n => n.label), edges: g.edges, freehand: g.freehand }));
+
+    // optional self-check rubric (off by default)
+    const useChecklist = $("opt-checklist").checked;
+    $("rv-rubric-section").style.display = useChecklist ? "" : "none";
+    $("rv-rubric").innerHTML = useChecklist ? REF.rubric.map((it, i) =>
+      `<li><input type="checkbox" id="rb${i}" data-w="${it.weight}"><label for="rb${i}">${it.text}
+        <span class="w">(×${it.weight})</span></label></li>`).join("") : "";
+
+    // reference panel
+    const reqNodes = REF.nodes.filter(n => n.required).map(n => n.label);
+    const reqEdges = REF.edges.filter(e => e.required)
+      .map(e => `${e.label}: ${resolve(e.from)} → ${resolve(e.to)}${e.direction && e.direction !== "any" ? " (" + e.direction + ")" : ""}`);
+    $("rv-reference").innerHTML =
+      `<div><b>Reservoirs (nodes):</b><ul>${reqNodes.map(n => `<li>${n}</li>`).join("")}</ul></div>
+       <div><b>Processes (edges):</b><ul>${reqEdges.map(e => `<li>${e}</li>`).join("")}</ul></div>`;
+
+    // extracted panel
+    $("rv-extracted").innerHTML =
+      `<div class="muted">${g.raw} shapes total · ${g.freehand} freehand strokes</div>
+       <div><b>Nodes read:</b> ${g.nodes.length ? g.nodes.map(n => n.label).join(", ") : "<span class='muted'>none</span>"}</div>
+       <div style="margin-top:6px"><b>Edges read:</b><ul>${
+         g.edges.length ? g.edges.map(e => `<li>${e.from} → ${e.to}${e.label ? " (" + e.label + ")" : ""}</li>`).join("") : "<li class='muted'>none</li>"}</ul></div>`;
+
+    $("done-msg").style.display = "none";
+    $("reveal").style.display = "flex";
+  }
+
+  document.querySelectorAll(".grades button").forEach(b => b.addEventListener("click", () => {
+    const grade = b.dataset.g;
+    const items = [...document.querySelectorAll("#rv-rubric input")];
+    const record = { card: REF.id, selfGrade: grade };
+    if (items.length) {
+      const gotW = items.filter(i => i.checked).reduce((s, i) => s + (+i.dataset.w), 0);
+      const totW = items.reduce((s, i) => s + (+i.dataset.w), 0);
+      record.rubricSelfScore = gotW + "/" + totW;
+      record.checked = items.filter(i => i.checked).length;
+      record.of = items.length;
+    }
+    console.log("SELF_GRADE_RECORD " + JSON.stringify(record));
+    $("done-msg").style.display = "block";
+    status("self-graded: " + grade + (record.rubricSelfScore ? " (" + record.rubricSelfScore + ")" : ""));
+  }));
+
+  // ---- self-test: inject a drawing, reveal, and self-grade (no human needed) ----
+  async function runSelfTest() {
+    for (let k = 0; k < 60 && !REF; k++) await new Promise(r => setTimeout(r, 100));
+    const Exc = window.__ExcMod;
+    const sk = [
+      { type: "rectangle", id: "ocean", x: 80, y: 360, width: 130, height: 60, label: { text: "Ocean" } },
+      { type: "rectangle", id: "atmos", x: 80, y: 90, width: 150, height: 60, label: { text: "Atmosphere" } },
+      { type: "rectangle", id: "clouds", x: 380, y: 90, width: 130, height: 60, label: { text: "Clouds" } },
+      { type: "rectangle", id: "land", x: 380, y: 360, width: 130, height: 60, label: { text: "Land" } },
+      { type: "arrow", x: 145, y: 355, width: 0, height: -200, start: { id: "ocean" }, end: { id: "atmos" }, label: { text: "Evaporation" } },
+      { type: "arrow", x: 235, y: 120, width: 140, height: 0, start: { id: "atmos" }, end: { id: "clouds" }, label: { text: "Condensation" } },
+      { type: "arrow", x: 445, y: 155, width: 0, height: 200, start: { id: "clouds" }, end: { id: "land" }, label: { text: "Precipitation" } },
+      { type: "arrow", x: 375, y: 390, width: -160, height: 0, start: { id: "land" }, end: { id: "ocean" }, label: { text: "Runoff" } },
+    ];
+    const els = Exc.convertToExcalidrawElements(sk);
+    window.__exc.updateScene({ elements: els });
+    console.log("SELFTEST: injected " + els.length + " elements");
+    await new Promise(r => setTimeout(r, 400));
+    showReveal();
+    await new Promise(r => setTimeout(r, 300));
+    document.querySelectorAll("#rv-rubric input").forEach(i => (i.checked = true));
+    document.querySelector('.grades button[data-g="good"]').click();
+    console.log("SELFTEST: complete");
+  }
+
+  // ---- trackpad lock-in: a viewport selector box you position/resize while
+  // unlocked; locking zooms Excalidraw into the box and draws there absolutely. ----
+  window.__trackpad = (function () {
+    let locked = false, drawing = false, last = null, sm = null;
+    let box = null;           // {x,y,w,h} screen coords — the selector (unlocked)
+    let savedView = null;     // {scrollX,scrollY,zoom} restored on unlock
+    const ASPECT = 1.6;
+    function appRect() { return document.getElementById("app").getBoundingClientRect(); }
+    function canvasEl() {
+      return document.querySelector(".excalidraw__canvas.interactive")
+          || document.querySelector(".excalidraw__canvas")
+          || document.querySelector("#app canvas");
+    }
+    function ensureBox() {
+      let o = document.getElementById("tp-outline");
+      if (!o) {
+        o = document.createElement("div"); o.id = "tp-outline";
+        o.innerHTML = '<div class="lbl"></div><div id="tp-brush"></div>';
+        document.body.appendChild(o);
+      }
+      return o;
+    }
+    function defaultBox() {
+      const a = appRect();
+      const w = Math.min(360, a.width * 0.4), h = w / ASPECT;
+      return { x: a.left + (a.width - w) / 2, y: a.top + (a.height - h) / 2, w, h };
+    }
+    function clampBox() {
+      const a = appRect();
+      box.w = Math.max(120, Math.min(box.w, a.width));
+      box.h = box.w / ASPECT;
+      box.x = Math.max(a.left, Math.min(box.x, a.left + a.width - box.w));
+      box.y = Math.max(a.top, Math.min(box.y, a.top + a.height - box.h));
+    }
+    function renderBox() {
+      const o = ensureBox();
+      let rect;
+      if (locked) { const a = appRect(); rect = { x: a.left, y: a.top, w: a.width, h: a.height }; }
+      else { clampBox(); rect = box; }
+      Object.assign(o.style, { left: rect.x + "px", top: rect.y + "px",
+        width: rect.w + "px", height: rect.h + "px", display: "block" });
+      o.classList.toggle("locked", locked);
+      o.querySelector(".lbl").textContent = locked
+        ? "drawing — one finger · Space / Esc to unlock"
+        : "trackpad region — 2-finger move · pinch resize · Space to lock & draw";
+    }
+    function showBox() { if (!box) box = defaultBox(); renderBox(); }
+    function moveBox(dx, dy) { if (locked || !box) return;
+      const s = TP.pan * (TP.invert ? -1 : 1); box.x -= dx * s; box.y -= dy * s; renderBox(); }
+    function resizeBox(f) { if (locked || !box) return;
+      const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+      box.w *= f; box.h = box.w / ASPECT; box.x = cx - box.w / 2; box.y = cy - box.h / 2; renderBox(); }
+
+    // when locked the whole viewport is the drawing surface (box was zoomed to fill it)
+    function activeRect() { const a = appRect(); return { x: a.left, y: a.top, w: a.width, h: a.height }; }
+    function map(nx, ny) { const r = activeRect(); return { x: r.x + nx * r.w, y: r.y + (1 - ny) * r.h }; }
+    function fire(type, c, buttons) {
+      const el = canvasEl(); if (!el) return;
+      el.dispatchEvent(new PointerEvent(type, { clientX: c.x, clientY: c.y, bubbles: true,
+        cancelable: true, pointerId: 1, pointerType: "mouse", isPrimary: true, button: 0, buttons }));
+    }
+    function zoomToBox() {
+      try {
+        const a = appRect(), st = window.__exc.getAppState(), z0 = st.zoom.value;
+        savedView = { scrollX: st.scrollX, scrollY: st.scrollY, zoom: z0 };
+        // box (screen) -> scene rect, using viewport = (scene + scroll) * zoom + offset
+        const sx0 = (box.x - a.left) / z0 - st.scrollX;
+        const sy0 = (box.y - a.top) / z0 - st.scrollY;
+        const sw = box.w / z0, sh = box.h / z0;
+        const z1 = Math.min(a.width / sw, a.height / sh);
+        window.__exc.updateScene({ appState: { scrollX: -sx0, scrollY: -sy0, zoom: { value: z1 } } });
+      } catch (e) { console.log("zoomToBox failed: " + e); }
+    }
+    function restoreView() {
+      try { if (savedView) window.__exc.updateScene({ appState: {
+        scrollX: savedView.scrollX, scrollY: savedView.scrollY, zoom: { value: savedView.zoom } } }); }
+      catch (e) {}
+      savedView = null;
+    }
+    function lock() {
+      if (locked) return; if (!box) box = defaultBox();
+      locked = true; zoomToBox();
+      try { window.__exc.setActiveTool({ type: "freedraw" }); } catch (e) {}
+      try { window.__exc.updateScene({ appState: { currentItemStrokeWidth: TP.stroke } }); } catch (e) {}
+      document.body.classList.add("tp-locked"); renderBox();
+      document.title = "TP:lock"; console.log("TRACKPAD locked");
+    }
+    function unlock() {
+      if (!locked) return;
+      if (drawing && last) fire("pointerup", last, 0);
+      locked = false; drawing = false; restoreView();
+      try { window.__exc.setActiveTool({ type: "selection" }); } catch (e) {}
+      document.body.classList.remove("tp-locked"); renderBox();
+      document.title = "TP:unlock";
+      try {
+        const n = window.__exc.getSceneElements().filter(e => !e.isDeleted && e.type === "freedraw").length;
+        console.log("TRACKPAD unlocked; freedraw strokes on canvas=" + n);
+      } catch (e) { console.log("TRACKPAD unlocked"); }
+    }
+    function onTouch(phase, nx, ny) {
+      if (!locked) return;
+      let c = map(nx, ny);
+      if (phase === "began") sm = { x: c.x, y: c.y };
+      else if (sm) { const s = TP.smooth; sm = { x: sm.x * s + c.x * (1 - s), y: sm.y * s + c.y * (1 - s) }; c = sm; }
+      last = c;
+      const a = appRect(), b = document.getElementById("tp-brush");
+      if (b) { b.style.left = (c.x - a.left) + "px"; b.style.top = (c.y - a.top) + "px"; }
+      if (phase === "began") { drawing = true; fire("pointerdown", c, 1); }
+      else if (phase === "moved") { if (drawing) fire("pointermove", c, 1); }
+      else { if (drawing) { fire("pointerup", c, 0); drawing = false; } }
+    }
+    return { lock, unlock, onTouch, showBox, moveBox, resizeBox, isLocked: () => locked };
+  })();
+
+  async function runTrackpadTest() {
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    for (let k = 0; k < 60 && !window.__exc; k++) await sleep(100);
+    TP.stroke = 0.5;   // verify thin strokes apply
+    window.__trackpad.lock(); await sleep(150);
+    const path = [[.30, .40], [.38, .46], [.46, .52], [.54, .56], [.62, .58], [.70, .56]];
+    window.__trackpad.onTouch("began", path[0][0], path[0][1]); await sleep(30);
+    for (let i = 1; i < path.length; i++) { window.__trackpad.onTouch("moved", path[i][0], path[i][1]); await sleep(30); }
+    window.__trackpad.onTouch("ended", path[path.length - 1][0], path[path.length - 1][1]); await sleep(250);
+    const els = window.__exc.getSceneElements().filter(e => !e.isDeleted);
+    const fd = els.find(e => e.type === "freedraw");
+    console.log("TRACKPAD_TEST freedraw=" + els.filter(e => e.type === "freedraw").length + " strokeW=" + (fd && fd.strokeWidth) + " totalEls=" + els.length);
+    window.__trackpad.unlock();
+  }
+
+  // ---- mount Excalidraw (verified working) ----
+  try {
+    status("importing react + excalidraw…");
+    const React = (await import("react")).default;
+    const { createRoot } = await import("react-dom/client");
+    window.EXCALIDRAW_ASSET_PATH = "https://unpkg.com/@excalidraw/excalidraw@0.18.0/dist/prod/";
+    const Exc = await import("@excalidraw/excalidraw");
+    window.__ExcMod = Exc;
+
+    // Trackpad settings live inside Excalidraw's own hamburger (☰) menu — no separate popover.
+    function TrackpadMenu() {
+      const M = Exc.MainMenu, h = React.createElement;
+      const slider = (label, key, min, max, step, apply) =>
+        h("label", { style: { display: "flex", alignItems: "center", gap: "8px", padding: "6px 14px", fontSize: "13px", color: "#475569" } },
+          h("span", { style: { flex: "0 0 82px" } }, label),
+          h("input", { type: "range", min, max, step, defaultValue: TP[key], style: { flex: 1 },
+            onInput: (e) => { TP[key] = parseFloat(e.target.value); saveTP(); if (apply) apply(TP[key]); } }));
+      const items = [
+        h(M.ItemCustom, { key: "tp-h" }, h("div", { style: { padding: "8px 14px 2px", fontWeight: 600, fontSize: "11px", letterSpacing: ".04em", textTransform: "uppercase", color: "#94a3b8" } }, "Trackpad drawing")),
+        h(M.ItemCustom, { key: "tp-pan" }, slider("Pan speed", "pan", 0.3, 5, 0.1)),
+        h(M.ItemCustom, { key: "tp-pinch" }, slider("Pinch speed", "pinch", 0.3, 4, 0.1)),
+        h(M.ItemCustom, { key: "tp-smooth" }, slider("Smoothing", "smooth", 0, 0.9, 0.05)),
+        h(M.ItemCustom, { key: "tp-stroke" }, slider("Stroke width", "stroke", 0.25, 4, 0.25, (v) => { try { window.__exc.updateScene({ appState: { currentItemStrokeWidth: v } }); } catch (e) {} })),
+        h(M.ItemCustom, { key: "tp-inv" },
+          h("label", { style: { display: "flex", alignItems: "center", gap: "8px", padding: "6px 14px", fontSize: "13px", color: "#475569" } },
+            h("input", { type: "checkbox", defaultChecked: TP.invert, onChange: (e) => { TP.invert = e.target.checked; saveTP(); } }), "Invert 2-finger direction")),
+        M.Separator ? h(M.Separator, { key: "tp-sep" }) : null,
+        (M.DefaultItems && M.DefaultItems.ClearCanvas) ? h(M.DefaultItems.ClearCanvas, { key: "tp-clear" }) : null,
+        (M.DefaultItems && M.DefaultItems.ToggleTheme) ? h(M.DefaultItems.ToggleTheme, { key: "tp-theme" }) : null,
+      ];
+      return h(M, null, items);
+    }
+    status("mounting…");
+    createRoot($("app")).render(
+      React.createElement(Exc.Excalidraw, {
+        initialData: { appState: { gridModeEnabled: true, gridSize: 20 } },
+        excalidrawAPI: (api) => {
+          window.__exc = api; window.EDITOR_MOUNTED = true;
+          $("done").disabled = false;
+          api.updateScene({ appState: { gridModeEnabled: true } });
+          setTimeout(() => console.log("GRID=" + api.getAppState().gridModeEnabled), 500);
+          console.log("EDITOR_MOUNTED");
+          status("editor ready — draw the water cycle, then click Done");
+          const _p = new URLSearchParams(location.search);
+          if (_p.get("selftest")) setTimeout(runSelfTest, 900);
+          if (_p.get("trackpad")) {
+            const tb = $("tp-lock"); tb.style.display = "";
+            tb.addEventListener("click", () => window.__trackpad.lock());
+            window.__trackpad.showBox();
+            status("unlocked — 2-finger move the box · pinch resize · Space to lock & draw · ☰ menu for settings");
+            // Space toggles lock (capture phase so Excalidraw's space-pan is suppressed),
+            // but never while editing a text label.
+            window.addEventListener("keydown", (e) => {
+              if (e.code !== "Space" && e.key !== " ") return;
+              let editing = false;
+              try { const st = window.__exc.getAppState(); editing = !!(st.editingElement || st.editingTextElement || st.editingLinearElement); } catch (_) {}
+              const tag = (document.activeElement && document.activeElement.tagName) || "";
+              if (editing || tag === "INPUT" || tag === "TEXTAREA") return;   // let space type
+              e.preventDefault(); e.stopImmediatePropagation();
+              window.__trackpad.isLocked() ? window.__trackpad.unlock() : window.__trackpad.lock();
+            }, true);
+            // Unlocked: 2-finger drag MOVES the box, pinch (ctrl+wheel) RESIZES it.
+            // Excalidraw's own pan/zoom is suppressed so "your side" never zooms.
+            window.addEventListener("wheel", (e) => {
+              e.preventDefault(); e.stopImmediatePropagation();
+              if (window.__trackpad.isLocked()) return;
+              if (e.ctrlKey) window.__trackpad.resizeBox(Math.exp(-e.deltaY * 0.01 * TP.pinch));
+              else window.__trackpad.moveBox(e.deltaX, e.deltaY);
+            }, { passive: false, capture: true });
+          }
+          if (_p.get("tptest")) setTimeout(runTrackpadTest, 1200);
+        },
+      }, (new URLSearchParams(location.search).get("trackpad") && Exc.MainMenu) ? React.createElement(TrackpadMenu) : null)
+    );
+    $("done").addEventListener("click", () => { if (REF) showReveal(); else status("reference still loading…"); });
+  } catch (err) {
+    console.log("MOUNT_EXCEPTION: " + (err && err.stack || err && err.message || err));
+    status("mount failed — see console");
+  }
+</script>
+</body>
+</html>
