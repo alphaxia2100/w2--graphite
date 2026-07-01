@@ -13,6 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = 8138
 OUT = sys.argv[1] if len(sys.argv) > 1 else "/tmp/editor-shot.png"
 QUERY = sys.argv[2] if len(sys.argv) > 2 else ""
+PREJS = sys.argv[3] if len(sys.argv) > 3 else ""   # JS to run just before capture
 
 
 class Page(QWebEnginePage):
@@ -58,7 +59,9 @@ def main():
         ok = pm.save(OUT)
         print(f"SHOT saved={ok} -> {OUT} ({pm.width()}x{pm.height()})", flush=True)
         QTimer.singleShot(600, app.quit)
-    QTimer.singleShot(6500, cap)
+    if PREJS:
+        QTimer.singleShot(5800, lambda: v.page().runJavaScript(PREJS))
+    QTimer.singleShot(6600, cap)
     app.exec()
 
 

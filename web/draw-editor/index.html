@@ -50,6 +50,19 @@
     background: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,.25); pointer-events: none; display: none; }
   #tp-outline.locked #tp-brush { display: block; }
   body.tp-locked { cursor: none; }
+  /* trackpad settings popover */
+  #tp-gear { background: #1e293b; color: #e2e8f0; border: 0; border-radius: 8px;
+    padding: 7px 11px; font-size: 15px; line-height: 1; cursor: pointer; }
+  #tp-settings { position: fixed; top: calc(var(--bar) + 6px); right: 12px; z-index: 8; display: none;
+    background: #fff; color: #0f172a; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 10px 14px 12px; box-shadow: 0 14px 44px rgba(0,0,0,.22); width: 280px; font-size: 13px; }
+  #tp-settings.open { display: block; }
+  #tp-settings h4 { margin: 4px 0 8px; font-size: 13px; font-weight: 500; color: #334155; }
+  #tp-settings .row { display: flex; align-items: center; gap: 8px; margin: 9px 0; }
+  #tp-settings .row > label { flex: 0 0 80px; color: #475569; }
+  #tp-settings .row input[type=range] { flex: 1; }
+  #tp-settings .row .v { flex: 0 0 34px; text-align: right; color: #64748b; font-variant-numeric: tabular-nums; }
+  #tp-settings .chk { display: flex; align-items: center; gap: 7px; color: #475569; cursor: pointer; }
 </style>
 <script type="importmap">
 {
@@ -67,10 +80,18 @@
 <div id="promptbar">
   <div class="p"><b>Prompt:</b> <span id="prompt">loading…</span></div>
   <label class="opt"><input type="checkbox" id="opt-checklist" /> self-check list</label>
+  <button id="tp-gear" style="display:none;" title="Trackpad settings">⚙</button>
   <button class="primary" id="tp-lock" style="display:none; background:#0d9488;">✋ Trackpad draw (Space)</button>
   <button class="primary" id="done" disabled>Done — reveal &amp; self-judge</button>
 </div>
 <div id="app"></div>
+<div id="tp-settings">
+  <h4>Trackpad settings</h4>
+  <div class="row"><label>Pan speed</label><input type="range" id="s-pan" min="0.3" max="5" step="0.1"><span class="v" id="v-pan"></span></div>
+  <div class="row"><label>Pinch speed</label><input type="range" id="s-pinch" min="0.3" max="4" step="0.1"><span class="v" id="v-pinch"></span></div>
+  <div class="row"><label>Smoothing</label><input type="range" id="s-smooth" min="0" max="0.9" step="0.05"><span class="v" id="v-smooth"></span></div>
+  <div class="row"><label class="chk"><input type="checkbox" id="s-invert" /> Invert 2-finger direction</label></div>
+</div>
 <div id="status">loading editor…</div>
 
 <div id="reveal"><div class="card">
@@ -99,6 +120,11 @@
   const status = (m) => { $("status").textContent = m; console.log("STATUS: " + m); };
   window.addEventListener("error", (e) => console.log("WINDOW_ERROR: " + (e.message || e)));
   window.addEventListener("unhandledrejection", (e) => console.log("PROMISE_REJECTION: " + (e.reason && e.reason.message || e.reason)));
+
+  // Trackpad tunables (persisted). Faster defaults; invert covers reversed scroll.
+  const TP = Object.assign({ pan: 2.2, pinch: 1.4, smooth: 0.25, invert: false },
+    JSON.parse(localStorage.getItem("tpSettings") || "{}"));
+  const saveTP = () => localStorage.setItem("tpSettings", JSON.stringify(TP));
 
   let REF = null;
   fetch("./reference-water-cycle.json").then(r => r.json()).then(j => {
@@ -209,7 +235,7 @@
   // ---- trackpad lock-in: a viewport selector box you position/resize while
   // unlocked; locking zooms Excalidraw into the box and draws there absolutely. ----
   window.__trackpad = (function () {
-    let locked = false, drawing = false, last = null;
+    let locked = false, drawing = false, last = null, sm = null;
     let box = null;           // {x,y,w,h} screen coords — the selector (unlocked)
     let savedView = null;     // {scrollX,scrollY,zoom} restored on unlock
     const ASPECT = 1.6;
@@ -253,7 +279,8 @@
         : "trackpad region — 2-finger move · pinch resize · Space to lock & draw";
     }
     function showBox() { if (!box) box = defaultBox(); renderBox(); }
-    function moveBox(dx, dy) { if (locked || !box) return; box.x -= dx; box.y -= dy; renderBox(); }
+    function moveBox(dx, dy) { if (locked || !box) return;
+      const s = TP.pan * (TP.invert ? -1 : 1); box.x -= dx * s; box.y -= dy * s; renderBox(); }
     function resizeBox(f) { if (locked || !box) return;
       const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
       box.w *= f; box.h = box.w / ASPECT; box.x = cx - box.w / 2; box.y = cy - box.h / 2; renderBox(); }
@@ -305,7 +332,10 @@
     }
     function onTouch(phase, nx, ny) {
       if (!locked) return;
-      const c = map(nx, ny); last = c;
+      let c = map(nx, ny);
+      if (phase === "began") sm = { x: c.x, y: c.y };
+      else if (sm) { const s = TP.smooth; sm = { x: sm.x * s + c.x * (1 - s), y: sm.y * s + c.y * (1 - s) }; c = sm; }
+      last = c;
       const a = appRect(), b = document.getElementById("tp-brush");
       if (b) { b.style.left = (c.x - a.left) + "px"; b.style.top = (c.y - a.top) + "px"; }
       if (phase === "began") { drawing = true; fire("pointerdown", c, 1); }
@@ -354,6 +384,21 @@
             tb.addEventListener("click", () => window.__trackpad.lock());
             window.__trackpad.showBox();
             status("unlocked — 2-finger move the box · pinch resize · Space to lock & draw");
+            // settings popover (⚙)
+            const gear = $("tp-gear"), panel = $("tp-settings");
+            gear.style.display = "";
+            gear.addEventListener("click", () => panel.classList.toggle("open"));
+            const bindRange = (id, key, dec) => {
+              const el = $("s-" + id), v = $("v-" + id);
+              el.value = TP[key];
+              const upd = () => { TP[key] = parseFloat(el.value); v.textContent = TP[key].toFixed(dec); saveTP(); };
+              el.addEventListener("input", upd); upd();
+            };
+            bindRange("pan", "pan", 1);
+            bindRange("pinch", "pinch", 1);
+            bindRange("smooth", "smooth", 2);
+            const inv = $("s-invert"); inv.checked = TP.invert;
+            inv.addEventListener("change", () => { TP.invert = inv.checked; saveTP(); });
             // Space toggles lock (capture phase so Excalidraw's space-pan is suppressed),
             // but never while editing a text label.
             window.addEventListener("keydown", (e) => {
@@ -370,7 +415,7 @@
             window.addEventListener("wheel", (e) => {
               e.preventDefault(); e.stopImmediatePropagation();
               if (window.__trackpad.isLocked()) return;
-              if (e.ctrlKey) window.__trackpad.resizeBox(Math.exp(-e.deltaY * 0.01));
+              if (e.ctrlKey) window.__trackpad.resizeBox(Math.exp(-e.deltaY * 0.01 * TP.pinch));
               else window.__trackpad.moveBox(e.deltaX, e.deltaY);
             }, { passive: false, capture: true });
           }
