@@ -160,10 +160,13 @@ _CSS = """
     border: 1px solid var(--border, #d0d0d0);
     border-radius: var(--border-radius-medium, 10px);
     background: var(--canvas-inset, #fafafa);
+    color: var(--fg, #222);
     padding: 8px;
     overflow: auto;
 }
 .gc-ref svg { width: 100%; height: 100%; }
+/* Keep reference labels readable in both light and dark mode. */
+.gc-ref svg text { fill: var(--fg, #222); }
 .gc-rubric { margin-top: 1em; }
 .gc-rubric ul { margin: 0.2em 0; padding-left: 1.1em; }
 .gc-rubric li { margin: 0.25em 0; line-height: 1.4; }
@@ -189,8 +192,11 @@ def get_or_create_notetype(col: Collection) -> dict:
     return col.models.by_name(NOTETYPE_NAME) or nt
 
 
-# A tiny built-in sample so the feature is demonstrable out of the box.
-_SAMPLE_REFERENCE = """
+# Built-in samples so the feature can be end-to-end tested out of the box.
+# Each reference is a small inline SVG; labels use the theme foreground (see
+# `.gc-ref svg text` in the CSS) so they read in both light and dark mode.
+
+_SVG_MULTI_AZ = """
 <svg viewBox="0 0 320 240" xmlns="http://www.w3.org/2000/svg" font-size="11" font-family="sans-serif">
   <rect x="8" y="8" width="304" height="224" rx="8" fill="none" stroke="#8888" stroke-dasharray="4 4"/>
   <text x="16" y="24" fill="#888">VPC</text>
@@ -212,48 +218,315 @@ _SAMPLE_REFERENCE = """
 </svg>
 """
 
-_SAMPLE_RUBRIC = """
-<ul>
-  <li>Public entry (Route 53 / ALB) reaches the web tier?</li>
-  <li>Web tier spread across <b>two Availability Zones</b>?</li>
-  <li>Load balancer in front of both web instances?</li>
-  <li>Database in a <b>private</b> subnet (no public route)?</li>
-  <li>Database is Multi-AZ for failover?</li>
-</ul>
+_SVG_SERVERLESS = """
+<svg viewBox="0 0 360 250" xmlns="http://www.w3.org/2000/svg" font-size="11" font-family="sans-serif">
+  <rect x="140" y="8" width="80" height="24" rx="4" fill="#8882" stroke="#888"/>
+  <text x="163" y="24">Client</text>
+  <rect x="30" y="60" width="100" height="26" rx="4" fill="#4c9aff33" stroke="#4c9aff"/>
+  <text x="48" y="77">CloudFront</text>
+  <rect x="30" y="115" width="100" height="26" rx="4" fill="#ffab0033" stroke="#ffab00"/>
+  <text x="42" y="132">S3 (static site)</text>
+  <rect x="160" y="60" width="110" height="26" rx="4" fill="#4c9aff33" stroke="#4c9aff"/>
+  <text x="176" y="77">API Gateway</text>
+  <rect x="290" y="60" width="62" height="26" rx="4" fill="#33b3c433" stroke="#33b3c4"/>
+  <text x="300" y="77">Cognito</text>
+  <rect x="160" y="120" width="110" height="26" rx="4" fill="#57d06433" stroke="#57d064"/>
+  <text x="188" y="137">Lambda</text>
+  <rect x="160" y="180" width="110" height="26" rx="4" fill="#ffab0033" stroke="#ffab00"/>
+  <text x="180" y="197">DynamoDB</text>
+  <line x1="160" y1="32" x2="90" y2="60" stroke="#888"/>
+  <line x1="80" y1="86" x2="80" y2="115" stroke="#888"/>
+  <line x1="200" y1="32" x2="215" y2="60" stroke="#888"/>
+  <line x1="270" y1="73" x2="290" y2="73" stroke="#888"/>
+  <line x1="215" y1="86" x2="215" y2="120" stroke="#888"/>
+  <line x1="215" y1="146" x2="215" y2="180" stroke="#888"/>
+</svg>
+"""
+
+_SVG_SQS = """
+<svg viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" font-size="11" font-family="sans-serif">
+  <rect x="15" y="60" width="100" height="30" rx="4" fill="#4c9aff33" stroke="#4c9aff"/>
+  <text x="24" y="79">Upload (S3/API)</text>
+  <rect x="145" y="60" width="80" height="30" rx="4" fill="#b18cff33" stroke="#b18cff"/>
+  <text x="168" y="79">SQS</text>
+  <rect x="255" y="52" width="95" height="46" rx="4" fill="#57d06433" stroke="#57d064"/>
+  <text x="266" y="72">Workers</text>
+  <text x="268" y="88">(Auto Scaling)</text>
+  <rect x="145" y="130" width="80" height="28" rx="4" fill="#b18cff22" stroke="#b18cff" stroke-dasharray="3 3"/>
+  <text x="168" y="148">DLQ</text>
+  <rect x="255" y="140" width="95" height="28" rx="4" fill="#ffab0033" stroke="#ffab00"/>
+  <text x="262" y="158">S3 / DynamoDB</text>
+  <line x1="115" y1="75" x2="145" y2="75" stroke="#888"/>
+  <line x1="225" y1="75" x2="255" y2="75" stroke="#888"/>
+  <line x1="185" y1="90" x2="185" y2="130" stroke="#888" stroke-dasharray="3 3"/>
+  <line x1="302" y1="98" x2="302" y2="140" stroke="#888"/>
+</svg>
+"""
+
+_SVG_VPC = """
+<svg viewBox="0 0 360 250" xmlns="http://www.w3.org/2000/svg" font-size="11" font-family="sans-serif">
+  <rect x="10" y="10" width="340" height="230" rx="8" fill="none" stroke="#8888" stroke-dasharray="4 4"/>
+  <text x="18" y="26" fill="#888">VPC</text>
+  <rect x="150" y="16" width="60" height="22" rx="4" fill="#4c9aff33" stroke="#4c9aff"/>
+  <text x="163" y="31">IGW</text>
+  <rect x="25" y="55" width="150" height="150" rx="6" fill="none" stroke="#8886" stroke-dasharray="2 3"/>
+  <text x="33" y="70" fill="#888">public subnet</text>
+  <rect x="40" y="80" width="120" height="26" rx="4" fill="#4c9aff33" stroke="#4c9aff"/>
+  <text x="86" y="97">ALB</text>
+  <rect x="40" y="125" width="120" height="26" rx="4" fill="#33b3c433" stroke="#33b3c4"/>
+  <text x="72" y="142">NAT Gateway</text>
+  <rect x="195" y="55" width="140" height="150" rx="6" fill="none" stroke="#8886" stroke-dasharray="2 3"/>
+  <text x="203" y="70" fill="#888">private subnet</text>
+  <rect x="210" y="95" width="115" height="30" rx="4" fill="#57d06433" stroke="#57d064"/>
+  <text x="228" y="114">App (EC2)</text>
+  <line x1="180" y1="38" x2="100" y2="80" stroke="#888"/>
+  <line x1="160" y1="93" x2="210" y2="108" stroke="#888"/>
+  <line x1="240" y1="125" x2="150" y2="138" stroke="#888"/>
+  <line x1="120" y1="125" x2="180" y2="38" stroke="#888" stroke-dasharray="3 3"/>
+</svg>
+"""
+
+_SVG_WATER = """
+<svg viewBox="0 0 340 240" xmlns="http://www.w3.org/2000/svg" font-size="11" font-family="sans-serif">
+  <rect x="15" y="175" width="130" height="45" rx="6" fill="#4c9aff33" stroke="#4c9aff"/>
+  <text x="55" y="202">Ocean</text>
+  <rect x="105" y="15" width="140" height="40" rx="20" fill="#33b3c433" stroke="#33b3c4"/>
+  <text x="120" y="39">Atmosphere (clouds)</text>
+  <rect x="195" y="175" width="130" height="45" rx="6" fill="#57d06433" stroke="#57d064"/>
+  <text x="225" y="202">Land / ground</text>
+  <line x1="80" y1="175" x2="140" y2="55" stroke="#888"/>
+  <text x="70" y="120" fill="#888">evaporation</text>
+  <line x1="210" y1="55" x2="250" y2="175" stroke="#888"/>
+  <text x="240" y="120" fill="#888">precipitation</text>
+  <line x1="195" y1="205" x2="145" y2="205" stroke="#888"/>
+  <text x="150" y="222" fill="#888">runoff</text>
+  <text x="140" y="70" fill="#888">condensation</text>
+</svg>
+"""
+
+_SVG_TRAFFIC = """
+<svg viewBox="0 0 320 170" xmlns="http://www.w3.org/2000/svg" font-size="11" font-family="sans-serif">
+  <rect x="15" y="55" width="80" height="34" rx="6" fill="#57d06433" stroke="#57d064"/>
+  <text x="42" y="76">Green</text>
+  <rect x="120" y="55" width="80" height="34" rx="6" fill="#ffab0033" stroke="#ffab00"/>
+  <text x="145" y="76">Yellow</text>
+  <rect x="225" y="55" width="80" height="34" rx="6" fill="#ff563033" stroke="#ff5630"/>
+  <text x="255" y="76">Red</text>
+  <line x1="95" y1="72" x2="120" y2="72" stroke="#888"/>
+  <line x1="200" y1="72" x2="225" y2="72" stroke="#888"/>
+  <text x="100" y="48" fill="#888">timer</text>
+  <text x="205" y="48" fill="#888">timer</text>
+  <path d="M265 89 Q265 140 160 140 Q55 140 55 89" fill="none" stroke="#888"/>
+  <text x="140" y="155" fill="#888">timer (red &#8594; green)</text>
+</svg>
 """
 
 
-def add_sample_notes(col: Collection, deck_name: str = "Graph Practice") -> int:
+def _rubric(items: list[str]) -> str:
+    lis = "".join(f"  <li>{item}</li>\n" for item in items)
+    return f"<ul>\n{lis}</ul>"
+
+
+GRAPH_SAMPLES: list[dict[str, str]] = [
+    {
+        "prompt": (
+            "Design a resilient, multi-AZ public web tier with a private "
+            "database and S3 static assets for a small web app."
+        ),
+        "reference": _SVG_MULTI_AZ,
+        "rubric": _rubric(
+            [
+                "Public entry (Route 53 / ALB) reaches the web tier?",
+                "Web tier spread across <b>two Availability Zones</b>?",
+                "Load balancer in front of both web instances?",
+                "Database in a <b>private</b> subnet (no public route)?",
+                "Database is Multi-AZ for failover?",
+            ]
+        ),
+    },
+    {
+        "prompt": (
+            "Design a serverless REST API for a to-do app: a static site, "
+            "authenticated HTTP requests, business logic, and a managed NoSQL "
+            "store \u2014 no servers to manage."
+        ),
+        "reference": _SVG_SERVERLESS,
+        "rubric": _rubric(
+            [
+                "Static site served from S3 (via CloudFront)?",
+                "API Gateway as the HTTPS entry to the API?",
+                "Auth via Cognito (or a Lambda authorizer)?",
+                "Business logic in <b>Lambda</b> (no EC2)?",
+                "Data in DynamoDB (managed NoSQL)?",
+            ]
+        ),
+    },
+    {
+        "prompt": (
+            "Design a decoupled image-processing pipeline: users upload "
+            "images; processing is asynchronous and must not drop work under "
+            "load."
+        ),
+        "reference": _SVG_SQS,
+        "rubric": _rubric(
+            [
+                "Upload path decoupled from processing?",
+                "<b>SQS</b> queue buffers work between producer and consumers?",
+                "Worker fleet scales with queue depth (Auto Scaling)?",
+                "Dead-letter queue for poison messages?",
+                "Results stored (S3 / DynamoDB)?",
+            ]
+        ),
+    },
+    {
+        "prompt": (
+            "Lay out a secure VPC: a public-facing load balancer, private app "
+            "servers that need outbound internet for updates, and no inbound "
+            "internet to the app tier."
+        ),
+        "reference": _SVG_VPC,
+        "rubric": _rubric(
+            [
+                "Internet Gateway attached to the VPC?",
+                "ALB in a <b>public</b> subnet?",
+                "App servers in a <b>private</b> subnet (no public IP)?",
+                "Outbound updates via a NAT Gateway in the public subnet?",
+                "Security groups: ALB \u2192 app only, on the app port?",
+            ]
+        ),
+    },
+    {
+        "prompt": (
+            "Draw the water cycle as a closed loop: show the reservoirs and "
+            "the processes that move water between them."
+        ),
+        "reference": _SVG_WATER,
+        "rubric": _rubric(
+            [
+                "Evaporation from ocean/surface to the atmosphere?",
+                "Condensation forming clouds?",
+                "Precipitation (rain/snow) back to the surface?",
+                "Runoff / infiltration returning water to the ocean?",
+                "The loop <b>closes</b> (no dead ends)?",
+            ]
+        ),
+    },
+    {
+        "prompt": (
+            "Model a traffic light as a state machine: the states and the "
+            "transitions (with triggers) between them."
+        ),
+        "reference": _SVG_TRAFFIC,
+        "rubric": _rubric(
+            [
+                "Three states (Green / Yellow / Red)?",
+                "Green \u2192 Yellow \u2192 Red order correct?",
+                "Red \u2192 Green closes the cycle?",
+                "Transitions labelled with their trigger (timer)?",
+            ]
+        ),
+    },
+]
+
+
+# Plain recognition cards, so the colour-coded review buttons can be tested on
+# ordinary cards alongside the graph-construction ones.
+BASIC_SAMPLES: list[tuple[str, str]] = [
+    (
+        "Which AWS storage class fits data that is accessed unpredictably and "
+        "should minimise cost automatically?",
+        "S3 Intelligent-Tiering \u2014 it moves objects between access tiers "
+        "based on usage, with no retrieval fees for tiering.",
+    ),
+    (
+        "You need a managed relational database that fails over automatically "
+        "to a standby. Which option?",
+        "Amazon RDS with Multi-AZ (a synchronous standby in another AZ).",
+    ),
+    (
+        "What decouples a producer from a consumer so work is not lost when "
+        "the consumer is busy or down?",
+        "Amazon SQS (a managed message queue).",
+    ),
+    (
+        "How do you give an EC2 instance permission to read from S3 without "
+        "storing access keys on it?",
+        "Attach an IAM role (instance profile) granting the S3 permissions.",
+    ),
+    (
+        "Which service caches content at edge locations to reduce latency for "
+        "global users?",
+        "Amazon CloudFront (CDN).",
+    ),
+    (
+        "What is the SAA-C03 passing score, and on what scale?",
+        "720 out of a scaled range of 100\u20131000.",
+    ),
+]
+
+
+def _existing_first_fields(col: Collection, deck_name: str) -> set[str]:
+    """First-field values already present in a deck, for de-duplication."""
+    result: set[str] = set()
+    for nid in col.find_notes(f'deck:"{deck_name}"'):
+        note = col.get_note(nid)
+        if note.fields:
+            result.add(note.fields[0].strip())
+    return result
+
+
+def add_graph_samples(col: Collection, deck_name: str = "Graph Practice") -> int:
     nt = get_or_create_notetype(col)
     deck_id = col.decks.id(deck_name)
-    samples = [
-        (
-            "Design a resilient, multi-AZ public web tier with a private "
-            "database and S3 static assets for a small web app.",
-            _SAMPLE_REFERENCE,
-            _SAMPLE_RUBRIC,
-        ),
-    ]
+    existing = _existing_first_fields(col, deck_name)
     added = 0
-    for prompt, reference, rubric in samples:
+    for sample in GRAPH_SAMPLES:
+        if sample["prompt"].strip() in existing:
+            continue
         note = col.new_note(nt)
-        note["Prompt"] = prompt
-        note["Reference"] = reference
-        note["Rubric"] = rubric
+        note["Prompt"] = sample["prompt"]
+        note["Reference"] = sample["reference"]
+        note["Rubric"] = sample["rubric"]
         col.add_note(note, deck_id)
         added += 1
     return added
 
 
+def add_basic_samples(col: Collection, deck_name: str = "AWS SAA Basics") -> int:
+    basic = col.models.by_name("Basic")
+    if not basic:
+        return 0
+    deck_id = col.decks.id(deck_name)
+    existing = _existing_first_fields(col, deck_name)
+    added = 0
+    for front, back in BASIC_SAMPLES:
+        if front.strip() in existing:
+            continue
+        note = col.new_note(basic)
+        note["Front"] = front
+        note["Back"] = back
+        col.add_note(note, deck_id)
+        added += 1
+    return added
+
+
+# Backwards-compatible alias.
+add_sample_notes = add_graph_samples
+
+
 def install_and_add_sample(mw: aqt.main.AnkiQt) -> None:
-    """Menu action: ensure the note type exists and add a sample card."""
-    added = add_sample_notes(mw.col)
+    """Menu action: ensure the note type exists and add the sample decks."""
+    graph = add_graph_samples(mw.col)
+    basic = add_basic_samples(mw.col)
     mw.reset()
-    tooltip(f"Added {added} graph-construction card(s) to 'Graph Practice'.")
+    tooltip(
+        f"Added {graph} graph card(s) to 'Graph Practice' and "
+        f"{basic} basic card(s) to 'AWS SAA Basics'."
+    )
 
 
 def setup_menu(mw: aqt.main.AnkiQt) -> None:
     """Add a discoverable Tools-menu entry for the feature."""
-    action = QAction("Add Graph-Construction Sample Deck", mw)
+    action = QAction("Add SAA Sample Decks (Graph + Basics)", mw)
     qconnect(action.triggered, lambda: install_and_add_sample(mw))
     mw.form.menuTools.addAction(action)
