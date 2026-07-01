@@ -917,6 +917,16 @@ timerStopped = false;
         assert isinstance(self.mw.col.sched, V3Scheduler)
         labels = self.mw.col.sched.describe_next_states(self._v3.states)
 
+        button_list = self._answerButtonList()
+        # Map each ease number to a stable, semantic rating name so the buttons
+        # can be colour-coded regardless of how many are shown (the meaning of a
+        # given ease number depends on the button count).
+        rating_names = {
+            2: {1: "again", 2: "good"},
+            3: {1: "again", 2: "good", 3: "easy"},
+            4: {1: "again", 2: "hard", 3: "good", 4: "easy"},
+        }.get(len(button_list), {})
+
         def but(i: int, label: str) -> str:
             if i == default:
                 extra = """id="defease" """
@@ -928,19 +938,21 @@ timerStopped = false;
                 if aqt.mw.pm.get_answer_key(i)
                 else ""
             )
+            rating = rating_names.get(i, "")
             return """
-<td align=center><button %s title="%s" data-ease="%s" onclick='pycmd("ease%d");'>\
+<td align=center><button %s title="%s" data-ease="%s" data-rating="%s" onclick='pycmd("ease%d");'>\
 %s%s</button></td>""" % (
                 extra,
                 key,
                 i,
+                rating,
                 i,
                 label,
                 due,
             )
 
         buf = "<center><table cellpadding=0 cellspacing=0><tr>"
-        for ease, label in self._answerButtonList():
+        for ease, label in button_list:
             buf += but(ease, label)
         buf += "</tr></table>"
         return buf

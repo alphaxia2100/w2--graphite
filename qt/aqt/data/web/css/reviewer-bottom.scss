@@ -24,10 +24,84 @@ body {
 }
 
 button {
-    min-width: 60px;
+    min-width: 70px;
     white-space: nowrap;
-    margin: 9px;
+    margin: 9px 7px;
     position: relative;
+    border-radius: prop(border-radius);
+    transition:
+        background-color prop(transition),
+        border-color prop(transition),
+        box-shadow prop(transition),
+        transform prop(transition);
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+/* Prominent primary "Show Answer" button */
+#ansbut {
+    min-width: 220px;
+    padding: 7px 18px;
+    font-weight: 600;
+    color: white;
+    border: none;
+    background: linear-gradient(
+        to bottom,
+        color(button-primary-gradient-start),
+        color(button-primary-gradient-end)
+    );
+    box-shadow: 0 1px 2px rgba(0 0 0 / 0.12);
+}
+
+#ansbut:hover {
+    filter: brightness(1.05);
+}
+
+/* Colour-coded answer buttons — Again/Hard/Good/Easy map to the
+   theme-aware red/orange/green/blue flag colours, so they adapt to
+   light and dark mode automatically. */
+button[data-rating] {
+    font-weight: 600;
+    border: 1px solid color(border);
+    border-bottom-width: 3px;
+    padding: 6px 12px;
+}
+
+button[data-rating="again"] {
+    border-bottom-color: color(flag-1);
+}
+button[data-rating="hard"] {
+    border-bottom-color: color(flag-2);
+}
+button[data-rating="good"] {
+    border-bottom-color: color(flag-3);
+}
+button[data-rating="easy"] {
+    border-bottom-color: color(flag-4);
+}
+
+button[data-rating="again"]:hover {
+    border-color: color(flag-1);
+    background: color-mix(in srgb, #{color(flag-1)} 13%, transparent);
+}
+button[data-rating="hard"]:hover {
+    border-color: color(flag-2);
+    background: color-mix(in srgb, #{color(flag-2)} 13%, transparent);
+}
+button[data-rating="good"]:hover {
+    border-color: color(flag-3);
+    background: color-mix(in srgb, #{color(flag-3)} 13%, transparent);
+}
+button[data-rating="easy"]:hover {
+    border-color: color(flag-4);
+    background: color-mix(in srgb, #{color(flag-4)} 13%, transparent);
+}
+
+/* The default (recommended) rating gets a slightly stronger emphasis. */
+#defease {
+    box-shadow: 0 1px 3px rgba(0 0 0 / 0.14);
 }
 
 .hitem {
