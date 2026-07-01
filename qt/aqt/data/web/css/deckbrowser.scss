@@ -25,6 +25,7 @@ a.deck {
     text-decoration: none;
     min-width: 5em;
     display: inline-block;
+    font-weight: 500;
 }
 
 a.deck:hover {
@@ -37,12 +38,12 @@ th {
 }
 
 tr.deck td {
-    padding: 1px 12px;
+    padding: 3px 12px;
     border-bottom: 1px solid var(--border-subtle);
 
     .fancy & {
         border: unset;
-        padding: 4px 12px;
+        padding: 7px 12px;
     }
 }
 
