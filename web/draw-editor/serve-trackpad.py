@@ -47,13 +47,29 @@ class Controller:
     def __init__(self):
         self.view = None
         self.locked = False
+        self._pending = None   # latest coalesced 'moved', flushed on a timer
 
     def js(self, code):
         if self.view is not None:
             self.view.page().runJavaScript(code)
 
-    def forward(self, phase, x, y):
+    def _emit(self, phase, x, y):
         self.js(f"window.__trackpad&&window.__trackpad.onTouch('{phase}',{x:.4f},{y:.4f})")
+
+    def forward(self, phase, x, y):
+        # Coalesce high-frequency 'moved' events to the latest and flush on a
+        # timer, so runJavaScript calls can't back up and lag behind the finger.
+        if phase == "moved":
+            self._pending = (x, y)
+        else:
+            self._pending = None
+            self._emit(phase, x, y)
+
+    def flush(self):
+        if self.locked and self._pending is not None:
+            x, y = self._pending
+            self._pending = None
+            self._emit("moved", x, y)
 
     def lock(self):
         if self.locked:
@@ -69,6 +85,7 @@ class Controller:
         if not self.locked:
             return
         self.locked = False
+        self._pending = None
         try:
             CGAssociateMouseAndMouseCursorPosition(True)
         except Exception:
@@ -137,6 +154,8 @@ def main():
             CTRL.unlock("(watchdog 60s)")
     t = QTimer(); t.timeout.connect(watchdog); t.start(1000)
     win._wd = t
+    ft = QTimer(); ft.timeout.connect(CTRL.flush); ft.start(8)   # ~125Hz coalesced flush
+    win._ft = ft
 
     print(f"trackpad launcher: http://127.0.0.1:{PORT}/index.html?trackpad=1", flush=True)
     sys.exit(app.exec())

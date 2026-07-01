@@ -90,6 +90,7 @@
   <div class="row"><label>Pan speed</label><input type="range" id="s-pan" min="0.3" max="5" step="0.1"><span class="v" id="v-pan"></span></div>
   <div class="row"><label>Pinch speed</label><input type="range" id="s-pinch" min="0.3" max="4" step="0.1"><span class="v" id="v-pinch"></span></div>
   <div class="row"><label>Smoothing</label><input type="range" id="s-smooth" min="0" max="0.9" step="0.05"><span class="v" id="v-smooth"></span></div>
+  <div class="row"><label>Stroke width</label><input type="range" id="s-stroke" min="0.25" max="4" step="0.25"><span class="v" id="v-stroke"></span></div>
   <div class="row"><label class="chk"><input type="checkbox" id="s-invert" /> Invert 2-finger direction</label></div>
 </div>
 <div id="status">loading editor…</div>
@@ -122,7 +123,7 @@
   window.addEventListener("unhandledrejection", (e) => console.log("PROMISE_REJECTION: " + (e.reason && e.reason.message || e.reason)));
 
   // Trackpad tunables (persisted). Faster defaults; invert covers reversed scroll.
-  const TP = Object.assign({ pan: 2.2, pinch: 1.4, smooth: 0.25, invert: false },
+  const TP = Object.assign({ pan: 2.2, pinch: 1.4, smooth: 0.2, stroke: 1, invert: false },
     JSON.parse(localStorage.getItem("tpSettings") || "{}"));
   const saveTP = () => localStorage.setItem("tpSettings", JSON.stringify(TP));
 
@@ -315,6 +316,7 @@
       if (locked) return; if (!box) box = defaultBox();
       locked = true; zoomToBox();
       try { window.__exc.setActiveTool({ type: "freedraw" }); } catch (e) {}
+      try { window.__exc.updateScene({ appState: { currentItemStrokeWidth: TP.stroke } }); } catch (e) {}
       document.body.classList.add("tp-locked"); renderBox();
       document.title = "TP:lock"; console.log("TRACKPAD locked");
     }
@@ -348,13 +350,15 @@
   async function runTrackpadTest() {
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     for (let k = 0; k < 60 && !window.__exc; k++) await sleep(100);
+    TP.stroke = 0.5;   // verify thin strokes apply
     window.__trackpad.lock(); await sleep(150);
     const path = [[.30, .40], [.38, .46], [.46, .52], [.54, .56], [.62, .58], [.70, .56]];
     window.__trackpad.onTouch("began", path[0][0], path[0][1]); await sleep(30);
     for (let i = 1; i < path.length; i++) { window.__trackpad.onTouch("moved", path[i][0], path[i][1]); await sleep(30); }
     window.__trackpad.onTouch("ended", path[path.length - 1][0], path[path.length - 1][1]); await sleep(250);
     const els = window.__exc.getSceneElements().filter(e => !e.isDeleted);
-    console.log("TRACKPAD_TEST freedraw=" + els.filter(e => e.type === "freedraw").length + " totalEls=" + els.length);
+    const fd = els.find(e => e.type === "freedraw");
+    console.log("TRACKPAD_TEST freedraw=" + els.filter(e => e.type === "freedraw").length + " strokeW=" + (fd && fd.strokeWidth) + " totalEls=" + els.length);
     window.__trackpad.unlock();
   }
 
@@ -388,15 +392,16 @@
             const gear = $("tp-gear"), panel = $("tp-settings");
             gear.style.display = "";
             gear.addEventListener("click", () => panel.classList.toggle("open"));
-            const bindRange = (id, key, dec) => {
+            const bindRange = (id, key, dec, apply) => {
               const el = $("s-" + id), v = $("v-" + id);
               el.value = TP[key];
-              const upd = () => { TP[key] = parseFloat(el.value); v.textContent = TP[key].toFixed(dec); saveTP(); };
+              const upd = () => { TP[key] = parseFloat(el.value); v.textContent = TP[key].toFixed(dec); saveTP(); if (apply) apply(TP[key]); };
               el.addEventListener("input", upd); upd();
             };
             bindRange("pan", "pan", 1);
             bindRange("pinch", "pinch", 1);
             bindRange("smooth", "smooth", 2);
+            bindRange("stroke", "stroke", 2, (v) => { try { window.__exc.updateScene({ appState: { currentItemStrokeWidth: v } }); } catch (e) {} });
             const inv = $("s-invert"); inv.checked = TP.invert;
             inv.addEventListener("change", () => { TP.invert = inv.checked; saveTP(); });
             // Space toggles lock (capture phase so Excalidraw's space-pan is suppressed),
