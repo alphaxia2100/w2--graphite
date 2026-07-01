@@ -80,19 +80,10 @@
 <div id="promptbar">
   <div class="p"><b>Prompt:</b> <span id="prompt">loading…</span></div>
   <label class="opt"><input type="checkbox" id="opt-checklist" /> self-check list</label>
-  <button id="tp-gear" style="display:none;" title="Trackpad settings">⚙</button>
   <button class="primary" id="tp-lock" style="display:none; background:#0d9488;">✋ Trackpad draw (Space)</button>
   <button class="primary" id="done" disabled>Done — reveal &amp; self-judge</button>
 </div>
 <div id="app"></div>
-<div id="tp-settings">
-  <h4>Trackpad settings</h4>
-  <div class="row"><label>Pan speed</label><input type="range" id="s-pan" min="0.3" max="5" step="0.1"><span class="v" id="v-pan"></span></div>
-  <div class="row"><label>Pinch speed</label><input type="range" id="s-pinch" min="0.3" max="4" step="0.1"><span class="v" id="v-pinch"></span></div>
-  <div class="row"><label>Smoothing</label><input type="range" id="s-smooth" min="0" max="0.9" step="0.05"><span class="v" id="v-smooth"></span></div>
-  <div class="row"><label>Stroke width</label><input type="range" id="s-stroke" min="0.25" max="4" step="0.25"><span class="v" id="v-stroke"></span></div>
-  <div class="row"><label class="chk"><input type="checkbox" id="s-invert" /> Invert 2-finger direction</label></div>
-</div>
 <div id="status">loading editor…</div>
 
 <div id="reveal"><div class="card">
@@ -123,7 +114,7 @@
   window.addEventListener("unhandledrejection", (e) => console.log("PROMISE_REJECTION: " + (e.reason && e.reason.message || e.reason)));
 
   // Trackpad tunables (persisted). Faster defaults; invert covers reversed scroll.
-  const TP = Object.assign({ pan: 2.2, pinch: 1.4, smooth: 0.2, stroke: 1, invert: false },
+  const TP = Object.assign({ pan: 2.2, pinch: 1.4, smooth: 0, stroke: 1, invert: false },
     JSON.parse(localStorage.getItem("tpSettings") || "{}"));
   const saveTP = () => localStorage.setItem("tpSettings", JSON.stringify(TP));
 
@@ -370,6 +361,30 @@
     window.EXCALIDRAW_ASSET_PATH = "https://unpkg.com/@excalidraw/excalidraw@0.18.0/dist/prod/";
     const Exc = await import("@excalidraw/excalidraw");
     window.__ExcMod = Exc;
+
+    // Trackpad settings live inside Excalidraw's own hamburger (☰) menu — no separate popover.
+    function TrackpadMenu() {
+      const M = Exc.MainMenu, h = React.createElement;
+      const slider = (label, key, min, max, step, apply) =>
+        h("label", { style: { display: "flex", alignItems: "center", gap: "8px", padding: "6px 14px", fontSize: "13px", color: "#475569" } },
+          h("span", { style: { flex: "0 0 82px" } }, label),
+          h("input", { type: "range", min, max, step, defaultValue: TP[key], style: { flex: 1 },
+            onInput: (e) => { TP[key] = parseFloat(e.target.value); saveTP(); if (apply) apply(TP[key]); } }));
+      const items = [
+        h(M.ItemCustom, { key: "tp-h" }, h("div", { style: { padding: "8px 14px 2px", fontWeight: 600, fontSize: "11px", letterSpacing: ".04em", textTransform: "uppercase", color: "#94a3b8" } }, "Trackpad drawing")),
+        h(M.ItemCustom, { key: "tp-pan" }, slider("Pan speed", "pan", 0.3, 5, 0.1)),
+        h(M.ItemCustom, { key: "tp-pinch" }, slider("Pinch speed", "pinch", 0.3, 4, 0.1)),
+        h(M.ItemCustom, { key: "tp-smooth" }, slider("Smoothing", "smooth", 0, 0.9, 0.05)),
+        h(M.ItemCustom, { key: "tp-stroke" }, slider("Stroke width", "stroke", 0.25, 4, 0.25, (v) => { try { window.__exc.updateScene({ appState: { currentItemStrokeWidth: v } }); } catch (e) {} })),
+        h(M.ItemCustom, { key: "tp-inv" },
+          h("label", { style: { display: "flex", alignItems: "center", gap: "8px", padding: "6px 14px", fontSize: "13px", color: "#475569" } },
+            h("input", { type: "checkbox", defaultChecked: TP.invert, onChange: (e) => { TP.invert = e.target.checked; saveTP(); } }), "Invert 2-finger direction")),
+        M.Separator ? h(M.Separator, { key: "tp-sep" }) : null,
+        (M.DefaultItems && M.DefaultItems.ClearCanvas) ? h(M.DefaultItems.ClearCanvas, { key: "tp-clear" }) : null,
+        (M.DefaultItems && M.DefaultItems.ToggleTheme) ? h(M.DefaultItems.ToggleTheme, { key: "tp-theme" }) : null,
+      ];
+      return h(M, null, items);
+    }
     status("mounting…");
     createRoot($("app")).render(
       React.createElement(Exc.Excalidraw, {
@@ -387,23 +402,7 @@
             const tb = $("tp-lock"); tb.style.display = "";
             tb.addEventListener("click", () => window.__trackpad.lock());
             window.__trackpad.showBox();
-            status("unlocked — 2-finger move the box · pinch resize · Space to lock & draw");
-            // settings popover (⚙)
-            const gear = $("tp-gear"), panel = $("tp-settings");
-            gear.style.display = "";
-            gear.addEventListener("click", () => panel.classList.toggle("open"));
-            const bindRange = (id, key, dec, apply) => {
-              const el = $("s-" + id), v = $("v-" + id);
-              el.value = TP[key];
-              const upd = () => { TP[key] = parseFloat(el.value); v.textContent = TP[key].toFixed(dec); saveTP(); if (apply) apply(TP[key]); };
-              el.addEventListener("input", upd); upd();
-            };
-            bindRange("pan", "pan", 1);
-            bindRange("pinch", "pinch", 1);
-            bindRange("smooth", "smooth", 2);
-            bindRange("stroke", "stroke", 2, (v) => { try { window.__exc.updateScene({ appState: { currentItemStrokeWidth: v } }); } catch (e) {} });
-            const inv = $("s-invert"); inv.checked = TP.invert;
-            inv.addEventListener("change", () => { TP.invert = inv.checked; saveTP(); });
+            status("unlocked — 2-finger move the box · pinch resize · Space to lock & draw · ☰ menu for settings");
             // Space toggles lock (capture phase so Excalidraw's space-pan is suppressed),
             // but never while editing a text label.
             window.addEventListener("keydown", (e) => {
@@ -426,7 +425,7 @@
           }
           if (_p.get("tptest")) setTimeout(runTrackpadTest, 1200);
         },
-      })
+      }, (new URLSearchParams(location.search).get("trackpad") && Exc.MainMenu) ? React.createElement(TrackpadMenu) : null)
     );
     $("done").addEventListener("click", () => { if (REF) showReveal(); else status("reference still loading…"); });
   } catch (err) {
