@@ -1448,6 +1448,11 @@ title="{}" {}>{}</button>""".format(
         qconnect(m.action_check_for_updates.triggered, self.on_check_for_updates)
         qconnect(m.actionPreferences.triggered, self.onPrefs)
 
+        # Graph-construction ("draw it from blank") feature
+        from aqt import graph_construction
+
+        graph_construction.setup_menu(self)
+
         # View
         qconnect(
             m.actionZoomIn.triggered,
