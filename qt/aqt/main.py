@@ -1448,6 +1448,17 @@ title="{}" {}>{}</button>""".format(
         qconnect(m.action_check_for_updates.triggered, self.on_check_for_updates)
         qconnect(m.actionPreferences.triggered, self.onPrefs)
 
+        # Tools — draw-it-from-blank diagram card (w2-graphite study feature)
+        action_drawcard = QAction("Draw-it-from-blank…", self)
+
+        def open_drawcard() -> None:
+            from aqt.drawcard import open_draw_editor
+
+            open_draw_editor(self)
+
+        qconnect(action_drawcard.triggered, open_drawcard)
+        m.menuTools.addAction(action_drawcard)
+
         # View
         qconnect(
             m.actionZoomIn.triggered,

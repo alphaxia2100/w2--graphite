@@ -118,9 +118,19 @@
     JSON.parse(localStorage.getItem("tpSettings") || "{}"));
   const saveTP = () => localStorage.setItem("tpSettings", JSON.stringify(TP));
 
+  // Embedded in Anki: native Qt chrome (toolbar + buttons) replaces the HTML bar.
+  const NATIVE = new URLSearchParams(location.search).get("chrome") === "native";
+  if (NATIVE) {
+    document.documentElement.style.setProperty("--bar", "0px");
+    const pb = document.getElementById("promptbar"); if (pb) pb.style.display = "none";
+  }
+
   let REF = null;
+  window.__prompt = "";
+  window.__done = () => { if (REF) showReveal(); };
   fetch("./reference-water-cycle.json").then(r => r.json()).then(j => {
-    REF = j; $("prompt").textContent = j.prompt; $("rv-title").textContent = "Reference — " + j.title;
+    REF = j; window.__prompt = j.prompt;
+    $("prompt").textContent = j.prompt; $("rv-title").textContent = "Reference — " + j.title;
   }).catch(e => console.log("REF_LOAD_FAIL: " + e));
 
   // self-check list: off by default, remembered across sessions
